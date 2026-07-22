@@ -1,0 +1,25 @@
+{
+  "name": "かなフリック入力練習",
+  "short_name": "KanaType",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F2F6F7",
+  "theme_color": "#5C88A8",
+  "orientation": "portrait",
+  "scope": "./",
+  "id": "/kana-practice/",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

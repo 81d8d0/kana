@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#8cabd9">
+    <meta name="apple-mobile-web-app-title" content="LINE風フリックかな入力練習">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <title>かな入力練習 - LINE Mode</title>
+    <style>
+        :root {
+            --bg-color: #8cabd9;        
+            --header-bg: #6182b3;
+            --header-text: #ffffff;
+            --msg-left-bg: #ffffff;
+            --msg-left-text: #111111;
+            --msg-right-bg: #85e249;
+            --msg-right-text: #111111;
+            --chat-time-text: #3b5a8c; 
+            --input-area-bg: #ffffff;
+            --input-bg: #f2f2f2;
+            --input-text: #111111;
+            --surface-color: #FFFFFF;
+            --text-primary: #333333;
+            --text-secondary: #7F8C8D;
+            --accent-color: #5C88A8;
+            --error-color: #E74C3C;
+            --modal-bg: rgba(0, 0, 0, 0.5);
+            --btn-paste: #DAE6ED;
+            --btn-edit: #B7CDDC;
+            --btn-reset: #8EAEC6;
+            --btn-modal: #FFFFFF;
+            --history-border: #E5E8E8;
+            --history-date: #7F8C8D;
+        }
+
+        body.dark-mode {
+            --bg-color: #1f2c3a;        
+            --header-bg: #151d27;
+            --header-text: #e0e0e0;
+            --msg-left-bg: #2d3b4e;
+            --msg-left-text: #ffffff;
+            --msg-right-bg: #555555; 
+            --msg-right-text: #ffffff;
+            --chat-time-text: #6b8abf; 
+            --input-area-bg: #151d27;
+            --input-bg: #253141;
+            --input-text: #ffffff;
+            --surface-color: #2D2D2D;
+            --text-primary: #E0E0E0;
+            --text-secondary: #9E9E9E; 
+            --accent-color: #729DBE;
+            --error-color: #CF6679;
+            --modal-bg: rgba(0, 0, 0, 0.7);
+            --btn-paste: #3A4B56;
+            --btn-edit: #475D6B;
+            --btn-reset: #587486;
+            --btn-modal: #3A3A3A;
+            --history-border: #444444;
+            --history-date: #9E9E9E;
+        }
+
+        html, body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+            width: 100vw; height: 100vh; height: 100dvh; height: var(--app-height, 100dvh);
+            position: fixed; overflow: hidden;
+            transition: background-color 0.3s ease;
+        }
+
+        #app-container {
+            display: flex; flex-direction: column;
+            height: 100%; width: 100%; max-width: 600px; margin: 0 auto;
+            position: relative; background-color: var(--bg-color);
+            padding-top: calc(50px + env(safe-area-inset-top)); 
+            box-sizing: border-box;
+        }
+
+        #header {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: calc(50px + env(safe-area-inset-top));
+            padding-top: env(safe-area-inset-top);
+            background-color: var(--header-bg);
+            color: var(--header-text);
+            display: flex; justify-content: space-between; align-items: center;
+            padding-left: 15px; padding-right: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            z-index: 10; flex-shrink: 0;
+            box-sizing: border-box;
+        }
+
+        .header-left {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .header-right {
+            display: flex; align-items: center; gap: 14px;
+        }
+
+        .icon-btn {
+            background: none; border: none; cursor: pointer;
+            padding: 4px; display: flex;
+            align-items: center; justify-content: center;
+            color: var(--header-text); transition: transform 0.1s;
+        }
+        .icon-btn:active { transform: scale(0.85); }
+        
+        #hamburger-btn { font-size: 1.6rem; line-height: 1; padding: 0; }
+        
+        #theme-toggle-btn img {
+            width: 24px; height: 24px;
+            filter: brightness(0) invert(1); 
+            transition: filter 0.3s ease;
+        }
+        body.dark-mode #theme-toggle-btn img {
+            filter: brightness(0) invert(0.88); 
+        }
+
+        #cpm-display {
+            font-size: 0.9rem; font-weight: 700;
+            margin-right: 4px;
+        }
+
+        #hamburger-menu {
+            display: none;
+            position: absolute;
+            top: calc(55px + env(safe-area-inset-top));
+            right: 15px;
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            flex-direction: column;
+            z-index: 100;
+            overflow: hidden;
+            min-width: 150px;
+        }
+        .hamburger-item {
+            padding: 14px 20px;
+            background: none; border: none;
+            border-bottom: 1px solid var(--history-border);
+            color: var(--text-primary);
+            font-size: 1rem; font-weight: 700;
+            text-align: left; cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .hamburger-item:last-child { border-bottom: none; }
+        .hamburger-item:active { background-color: var(--input-bg); }
+
+        #chat-area {
+            flex: 1; overflow-y: auto; padding: 15px;
+            display: flex; flex-direction: column; gap: 14px;
+            scroll-behavior: smooth;
+        }
+        #chat-area::-webkit-scrollbar { display: none; }
+
+        .chat-row { display: flex; width: 100%; }
+        .chat-row.left { justify-content: flex-start; align-items: flex-start; gap: 8px; }
+        .chat-row.right { justify-content: flex-end; align-items: flex-start; }
+
+        .chat-avatar {
+            width: 40px; height: 40px; border-radius: 50%;
+            object-fit: cover; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .chat-message-group { display: flex; align-items: flex-end; gap: 6px; max-width: 80%; }
+
+        .chat-bubble {
+            padding: 10px 14px; border-radius: 18px; font-size: 1.1rem; line-height: 1.5;
+            word-break: break-all; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .chat-row.left .chat-bubble { 
+            background-color: var(--msg-left-bg); 
+            color: var(--msg-left-text); 
+        }
+        .chat-row.left .chat-bubble::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: -6px; 
+            width: 8px; 
+            height: 14px;
+            background-color: var(--msg-left-bg);
+            -webkit-clip-path: polygon(0 0, 100% 4px, 100% 100%);
+            clip-path: polygon(0 0, 100% 4px, 100% 100%);
+        }
+
+        .chat-row.right .chat-bubble { 
+            background-color: var(--msg-right-bg); 
+            color: var(--msg-right-text); 
+        }
+        .chat-row.right .chat-bubble::after {
+            content: '';
+            position: absolute;
+            top: 8px;
+            right: -6px; 
+            width: 8px; 
+            height: 14px;
+            background-color: var(--msg-right-bg);
+            -webkit-clip-path: polygon(100% 0, 0 4px, 0 100%);
+            clip-path: polygon(100% 0, 0 4px, 0 100%);
+        }
+
+        .chat-time {
+            font-size: 0.7rem; color: var(--chat-time-text);
+            margin-bottom: 2px; white-space: nowrap; flex-shrink: 0;
+        }
+
+        .target-char { font-weight: 400; transition: font-weight 0.1s ease; }
+
+        #input-container {
+            background-color: var(--input-area-bg);
+            padding: 10px 15px calc(10px + env(safe-area-inset-bottom));
+            display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 -1px 3px rgba(0,0,0,0.1); flex-shrink: 0;
+        }
+
+        .input-icon-left {
+            font-size: 1.4rem; color: var(--text-primary); font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+            user-select: none;
+        }
+
+        .input-icon-right img {
+            width: 24px; height: 24px; object-fit: contain;
+            mix-blend-mode: multiply; 
+            display: block;
+        }
+        body.dark-mode .input-icon-right img {
+            filter: invert(1); 
+            mix-blend-mode: screen; 
+        }
+
+        #kana-input {
+            flex: 1; height: 40px; border-radius: 20px;
+            border: none; background-color: var(--input-bg);
+            color: var(--input-text); padding: 0 15px;
+            font-size: 1rem; outline: none; font-family: 'Noto Sans JP', sans-serif;
+            transition: background-color 0.2s;
+        }
+
+        .chat-row.inline-actions-row {
+            margin-top: -6px;
+        }
+        .inline-actions {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            max-width: 80%;
+        }
+
+        .quick-reply-btn {
+            flex-shrink: 0;
+            padding: 9px 18px;
+            border-radius: 20px;
+            border: 1.5px solid var(--accent-color);
+            background-color: var(--surface-color);
+            color: var(--accent-color);
+            font-size: 0.9rem; font-weight: 700;
+            cursor: pointer; white-space: nowrap;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.1s, background-color 0.15s, color 0.15s;
+        }
+        .quick-reply-btn:active { transform: scale(0.94); background-color: var(--accent-color); color: white; }
+
+        .modal {
+            display: none; position: fixed; inset: 0; z-index: 200;
+            background-color: var(--modal-bg); backdrop-filter: blur(4px);
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal.modal-top { align-items: flex-start; padding-top: calc(env(safe-area-inset-top) + 60px); }
+
+        .modal-content {
+            background-color: var(--surface-color); width: 100%; max-width: 380px;
+            border-radius: 16px; padding: 20px; display: flex;
+            flex-direction: column; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .modal-content h3 { margin: 0; font-size: 1.1rem; text-align: center; color: var(--text-primary); }
+        .modal-hint { font-size: 0.8rem; color: var(--text-secondary); text-align: center; margin-top: -5px; line-height: 1.4; }
+
+        .modal-textarea {
+            width: 100%; height: 30vh; min-height: 180px; padding: 12px; border-radius: 8px;
+            border: 2px solid var(--history-border); font-size: 1rem;
+            background-color: var(--surface-color); color: var(--text-primary);
+            box-sizing: border-box; resize: none; outline: none; transition: border-color 0.3s;
+        }
+        .modal-textarea:focus { border-color: var(--accent-color); }
+
+        .btn {
+            flex: 1; height: 48px; display: flex; align-items: center; justify-content: center; 
+            font-size: 0.9rem; font-weight: 700; border: none; border-radius: 24px; 
+            cursor: pointer; transition: all 0.2s, background-color 0.3s, color 0.3s; 
+            -webkit-tap-highlight-color: transparent; box-sizing: border-box; 
+            white-space: nowrap; padding: 0 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        }
+        .btn:active { transform: scale(0.96); }
+        body.dark-mode .btn { box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+
+        .modal-buttons { display: flex; gap: 10px; width: 100%; }
+        .modal-buttons .btn { 
+            background-color: var(--btn-modal); color: var(--text-primary); 
+            height: 44px; padding: 0 5px; 
+        }
+        body.dark-mode .modal-buttons .btn { color: #FFFFFF; }
+        .modal-buttons .btn.primary { background-color: var(--accent-color); color: white; }
+        .modal-buttons .btn.error { background-color: var(--error-color); color: white; }
+        .modal-buttons .btn.secondary { background-color: var(--btn-reset); color: white; }
+
+        .modal-buttons.ratio-3-1-3 { display: flex; gap: 8px; width: 100%; }
+        .modal-buttons.ratio-3-1-3 > .btn:nth-child(1) { flex: 3; }
+        .modal-buttons.ratio-3-1-3 > .btn:nth-child(2) { flex: 1.2; font-size: 0.8rem; padding: 0 4px; }
+        .modal-buttons.ratio-3-1-3 > .btn:nth-child(3) { flex: 3; }
+
+        .all-keys-grid { 
+            display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 3fr 1fr 5fr; 
+            gap: 10px; height: 170px; 
+        }
+        .all-keys-option { 
+            font-size: 1.1rem; border-radius: 16px; display: flex; align-items: center; 
+            justify-content: center; text-align: center; line-height: 1.35; margin: 0; width: 100%; height: 100%; 
+        }
+        .sub-label { display: block; font-size: 0.75rem; font-weight: 400; margin-top: 4px; opacity: 0.9; }
+        #all-keys-hiragana-btn { grid-row: 1 / 2; grid-column: 1; }
+        #all-keys-youon-btn    { grid-row: 2 / 4; grid-column: 1; }
+        #all-keys-katakana-btn { grid-row: 1 / 3; grid-column: 2; }
+        #all-keys-gairai-btn   { grid-row: 3 / 4; grid-column: 2; }
+        .all-keys-option.opt-hiragana { background-color: var(--btn-paste); color: var(--text-primary); }
+        .all-keys-option.opt-katakana { background-color: var(--btn-edit); color: var(--text-primary); }
+        .all-keys-option.opt-youon { background-color: var(--btn-reset); color: #FFFFFF; }
+        .all-keys-option.opt-gairai { background-color: var(--accent-color); color: #FFFFFF; }
+        body.dark-mode .all-keys-option.opt-hiragana,
+        body.dark-mode .all-keys-option.opt-katakana { color: #FFFFFF; }
+
+        #history-list { max-height: 35vh; overflow-y: auto; border: 1px solid var(--history-border); border-radius: 8px; padding: 10px; }
+        .history-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--history-border); font-size: 0.95rem; }
+        .history-item:last-child { border-bottom: none; }
+        
+        #custom-alert { 
+            display: none; position: fixed; left: 50%; top: 20%; transform: translate(-50%, -50%); 
+            width: 80%; max-width: 400px;
+            background-color: var(--accent-color); color: white; padding: 15px 20px; 
+            border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 1000; 
+            font-weight: 700; text-align: center; box-sizing: border-box; line-height: 1.5; font-size: 1.1rem; 
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div id="header">
+        <div class="header-left">
+            <span id="progress">0 / 0</span>
+            <button id="menu-classic" class="icon-btn" aria-label="通常版に戻る" style="font-size: 1.1rem;">📃📄</button>
+        </div>
+        <div class="header-right">
+            <span id="cpm-display" style="display: none;"> 文字数/分</span>
+            <button id="theme-toggle-btn" class="icon-btn" aria-label="ダークモード切り替え">
+                <img src="mode.svg" alt="Mode">
+            </button>
+            <button id="hamburger-btn" class="icon-btn" aria-label="メニュー">☰</button>
+        </div>
+    </div>
+
+    <div id="hamburger-menu">
+        <button id="menu-paste" class="hamburger-item">貼り付け</button>
+        <button id="menu-phrase" class="hamburger-item">フレーズ集</button>
+        <button id="menu-shuffle" class="hamburger-item">シャッフル</button>
+        <button id="menu-allkeys" class="hamburger-item">全キー</button>        
+    </div>
+
+    <div id="chat-area"></div>
+
+    <div id="input-container">
+        <div class="input-icon-left">＞</div>
+        <input type="text" id="kana-input" lang="ja" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="メッセージを入力...">
+        <div class="input-icon-right">
+            <img src="mic.jpg" alt="Voice">
+        </div>
+    </div>
+</div>
+
+<div id="history-modal" class="modal">
+    <div class="modal-content">
+        <h3>入力履歴</h3>
+        <div id="history-list"></div>
+        <div class="modal-buttons" style="flex-wrap: wrap;">
+            <button id="import-btn" class="btn" style="flex: 1 1 45%;">インポート</button>
+            <button id="export-btn" class="btn" style="flex: 1 1 45%;">エクスポート</button>
+            <button id="clear-history-btn" class="btn error" style="flex: 1 1 100%; margin-top: 5px;">削除</button>
+            <button id="close-history-btn" class="btn primary" style="flex: 1 1 100%; margin-top: 5px;">閉じる</button>
+        </div>
+        <input type="file" id="import-file" style="display: none;" accept=".json">
+    </div>
+</div>
+
+<div id="paste-modal" class="modal modal-top">
+    <div class="modal-content">
+        <h3>長文を貼り付け</h3>
+        <div class="modal-hint">改行と空白は自動的に削除されます。<br>入力した文章から約200文字を抜き出し、<br>6つの会話に分けて出題します。<br>※漢字は正解率の計算に含まれません。</div>
+        <textarea id="paste-textarea" class="modal-textarea" spellcheck="false" placeholder=""></textarea>
+        <div class="modal-buttons ratio-3-1-3">
+            <button id="cancel-paste-btn" class="btn">キャンセル</button>
+            <button id="clear-paste-btn" class="btn secondary">クリア</button>
+            <button id="save-paste-btn" class="btn primary">確認して開始</button>
+        </div>
+    </div>
+</div>
+
+<div id="edit-modal" class="modal modal-top">
+    <div class="modal-content">
+        <h3>フレーズ集を編集</h3>
+        <div class="modal-hint">1行に1つのフレーズを入力してください。入力したフレーズからランダム出題します。<br>※漢字は正解率の計算に含まれません。</div>
+        <textarea id="edit-textarea" class="modal-textarea" spellcheck="false" placeholder="1行に1フレーズ入力..."></textarea>
+        <div class="modal-buttons ratio-3-1-3">
+            <button id="cancel-edit-btn" class="btn">キャンセル</button>
+            <button id="reset-edit-btn" class="btn secondary">リセット</button>
+            <button id="save-edit-btn" class="btn primary">保存して開始</button>
+        </div>
+    </div>
+</div>
+
+<div id="all-keys-modal" class="modal">
+    <div class="modal-content">
+        <h3>キーセットを選択</h3>
+        <div class="all-keys-grid">
+            <button id="all-keys-hiragana-btn" class="btn all-keys-option opt-hiragana">基本</button>
+            <button id="all-keys-katakana-btn" class="btn all-keys-option opt-katakana">濁音<br>半濁音</button>
+            <button id="all-keys-youon-btn" class="btn all-keys-option opt-youon">
+                <div>拗音<br>促音<span class="sub-label">(ひらがな)</span></div>
+            </button>
+            <button id="all-keys-gairai-btn" class="btn all-keys-option opt-gairai">
+                <div>長音<span class="sub-label">(カタカナ)</span></div>
+            </button>
+        </div>
+        <div class="modal-buttons">
+            <button id="cancel-all-keys-btn" class="btn">キャンセル</button>
+        </div>
+    </div>
+</div>
+
+<div id="custom-alert"></div>
+
+<div id="confirm-modal" class="modal">
+    <div class="modal-content">
+        <h3 id="confirm-modal-text"></h3>
+        <div class="modal-buttons">
+            <button id="confirm-modal-cancel-btn" class="btn">キャンセル</button>
+            <button id="confirm-modal-ok-btn" class="btn error">削除</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.error('SW Fail', err));
+    }
+
+    // 跟 index.html 同一套修法：從 index.html 切換過來、鍵盤還在收合過程中時，
+    // 100dvh 可能被卡在舊頁面鍵盤還開著那個瞬間的高度。用 JS 實際量測
+    // window.innerHeight 蓋掉 CSS 的 100dvh，resize/orientationchange 時
+    // 重新量一次，確保一定是用當下正確的高度。
+    function setAppHeight() {
+        document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+    }
+    setAppHeight();
+    window.addEventListener('resize', setAppHeight);
+    window.addEventListener('orientationchange', setAppHeight);
+
+    const SafeStorage = {
+        get(key, fallback = null) {
+            try { const v = localStorage.getItem(key); return v === null ? fallback : v; } catch (e) { return fallback; }
+        },
+        set(key, value) {
+            try { localStorage.setItem(key, value); return true; } catch (e) { return false; }
+        }
+    };
+
+    const ModalManager = {
+        open(modal) { if (modal) modal.style.display = 'flex'; },
+        close(modal) { if (modal) modal.style.display = 'none'; }
+    };
+
+    const UiFeedback = {
+        alert(msg) {
+            const el = document.getElementById('custom-alert');
+            el.textContent = msg; el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 2000);
+        },
+        confirm(message, onConfirm, okLabel = '削除') {
+            const modal = document.getElementById('confirm-modal');
+            const textEl = document.getElementById('confirm-modal-text');
+            const okBtn = document.getElementById('confirm-modal-ok-btn');
+            const cancelBtn = document.getElementById('confirm-modal-cancel-btn');
+
+            textEl.textContent = message;
+            okBtn.textContent = okLabel;
+
+            const cleanup = () => {
+                okBtn.onclick = null;
+                cancelBtn.onclick = null;
+                ModalManager.close(modal);
+            };
+            okBtn.onclick = () => { cleanup(); onConfirm(); };
+            cancelBtn.onclick = cleanup;
+
+            ModalManager.open(modal);
+        }
+    };
+
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, ch => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[ch]));
+    }
+
+    function appendInlineActions(options) {
+        const chatArea = document.getElementById('chat-area');
+
+        const row = document.createElement('div');
+        row.className = 'chat-row left inline-actions-row';
+
+        const spacer = document.createElement('div');
+        spacer.className = 'chat-avatar';
+        spacer.style.visibility = 'hidden';
+
+        const actionsWrap = document.createElement('div');
+        actionsWrap.className = 'inline-actions';
+
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'quick-reply-btn';
+            btn.textContent = opt.label;
+            btn.onclick = () => {
+                row.remove();
+                opt.onClick();
+            };
+            actionsWrap.appendChild(btn);
+        });
+
+        row.appendChild(spacer);
+        row.appendChild(actionsWrap);
+        chatArea.appendChild(row);
+        chatArea.scrollTop = chatArea.scrollHeight;
+        return row;
+    }
+
+    function getCurrentTimeStr() {
+        const now = new Date();
+        return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    }
+
+    const ThemeManager = (() => {
+        const toggleBtn = document.getElementById('theme-toggle-btn');
+        function init() {
+            if (SafeStorage.get('kana_line_theme') === 'dark') {
+                document.body.classList.add('dark-mode');
+            }
+            toggleBtn.addEventListener('click', () => {
+                document.body.classList.toggle('dark-mode');
+                const isDark = document.body.classList.contains('dark-mode');
+                SafeStorage.set('kana_line_theme', isDark ? 'dark' : 'light');
+            });
+        }
+        return { init };
+    })();
+
+    const CpmTracker = (() => {
+        const displayEl = document.getElementById('cpm-display');
+        const IDLE_THRESHOLD_MS = 3000; const TICK_INTERVAL_MS = 500;
+        let totalActiveTimeMs = 0; let lastTickTime = 0; let lastKeystrokeTime = 0;
+        let intervalId = null; let getInputLength = () => 0; let isReadOnly = () => true;
+
+        function configure({ getInputLength: g, isReadOnly: r }) { getInputLength = g; isReadOnly = r; }
+        function tick() {
+            if (isReadOnly()) return;
+            const now = Date.now(); const delta = now - lastTickTime; lastTickTime = now;
+            if (now - lastKeystrokeTime <= IDLE_THRESHOLD_MS) totalActiveTimeMs += delta;
+            if (totalActiveTimeMs > 0) {
+                const minutes = totalActiveTimeMs / 60000;
+                displayEl.textContent = Math.floor(getInputLength() / minutes) + ' 文字数/分';
+            }
+        }
+        function onKeystroke(inputLength) {
+            const now = Date.now();
+            if (!intervalId && inputLength > 0) {
+                lastTickTime = now; lastKeystrokeTime = now;
+                intervalId = setInterval(tick, TICK_INTERVAL_MS);
+                displayEl.style.display = 'block';
+            }
+            if (inputLength > 0) { lastKeystrokeTime = now; } 
+            else { reset(); }
+        }
+        function stop() { if (intervalId) { clearInterval(intervalId); intervalId = null; } }
+        function reset() {
+            totalActiveTimeMs = 0; lastTickTime = 0; lastKeystrokeTime = 0; stop();
+            displayEl.textContent = ' 文字数/分'; displayEl.style.display = 'none';
+        }
+        return { configure, onKeystroke, stop, reset, getDisplayText: () => displayEl.textContent };
+    })();
+
+    const KanaMatcher = (() => {
+        const isKatakana = (ch) => /[\u30A0-\u30FF]/.test(ch);
+        const isHiragana = (ch) => /[\u3040-\u309F]/.test(ch);
+        const isProlongedMark = (ch) => ch === 'ー';
+        const isProlongedInput = (ch) => ch === 'ー' || ch === '-' || ch === '－' || ch === 'ｰ';
+
+        const pendingMap = {
+            'ぁ':'あ', 'ぃ':'い', 'ぅ':'う', 'ぇ':'え', 'ぉ':'お',
+            'が':'か', 'ぎ':'き', 'ぐ':'く', 'げ':'け', 'ご':'こ',
+            'ざ':'さ', 'じ':'し', 'ず':'す', 'ぜ':'せ', 'ぞ':'そ',
+            'だ':'た', 'ぢ':'ち', 'づ':'つ', 'で':'て', 'ど':'と',
+            'ば':'は', 'ぱ':'はば',
+            'び':'ひ', 'ぴ':'ひび',
+            'ぶ':'ふ', 'ぷ':'ふぶ',
+            'べ':'へ', 'ぺ':'へべ',
+            'ぼ':'ほ', 'ぽ':'ほぼ',
+            'ゔ':'う',
+            'ゃ':'や', 'ゅ':'ゆ', 'ょ':'よ', 'っ':'つ', 'ゎ':'わ',
+            'ァ':'ア', 'ィ':'イ', 'ゥ':'ウ', 'ェ':'エ', 'ォ':'オ',
+            'ガ':'カ', 'ギ':'キ', 'グ':'ク', 'ゲ':'ケ', 'ゴ':'コ',
+            'ザ':'サ', 'ジ':'シ', 'ズ':'ス', 'ゼ':'セ', 'ゾ':'ソ',
+            'ダ':'タ', 'ヂ':'チ', 'ヅ':'ツ', 'デ':'テ', 'ド':'ト',
+            'バ':'ハ', 'パ':'ハバ',
+            'ビ':'ヒ', 'ピ':'ヒビ',
+            'ブ':'フ', 'プ':'フブ',
+            'ベ':'ヘ', 'ペ':'ヘベ',
+            'ボ':'ホ', 'ポ':'ホボ',
+            'ャ':'ヤ', 'ュ':'ユ', 'ョ':'ヨ', 'ッ':'ツ', 'ヮ':'ワ',
+            'ヴ':'ウ', 'ヵ':'カ', 'ヶ':'ケ'
+        };
+
+        function classify(targetChar, inputChar, prevTargetChar, prevInputChar) {
+            const targetIsKata = isKatakana(targetChar);
+            if (targetChar === inputChar || (isProlongedMark(targetChar) && isProlongedInput(inputChar))) {
+                if (isProlongedMark(targetChar) && prevTargetChar && isKatakana(prevTargetChar)) {
+                    return prevInputChar && isHiragana(prevInputChar) ? 'correct-kata' : 'correct';
+                }
+                return 'correct';
+            }
+            if (targetIsKata) {
+                const targetCode = targetChar.charCodeAt(0); const inputCode = inputChar.charCodeAt(0);
+                if (targetCode >= 0x30A1 && targetCode <= 0x30F6 && inputCode >= 0x3041 && inputCode <= 0x3096 && targetCode === (inputCode + 0x60)) {
+                    return 'correct-kata';
+                }
+            }
+
+            if (pendingMap[targetChar] && pendingMap[targetChar].includes(inputChar)) {
+                return 'pending';
+            }
+
+            if (/^[a-zA-Z]$/.test(inputChar)) {
+                return 'pending';
+            }
+
+            return 'error';
+        }
+        return { classify };
+    })();
+
+    const PracticeEngine = (() => {
+        const DEFAULT_POOL = [
+            "わたしはきのうふるいパソコンでふゆのさくらをさつえいした",
+            "ひこうきにのってみしらぬまちへむかいポストにれんらくする",
+            "むずかしいしゅくだいをやっとおわらせてヨーロッパへいく",
+            "よなかにあまいチョコレートやプリンをたべながらわらう",
+            "ざっしやにほんごのれんしゅうもまいにちつづけています",
+            "ぜったいにあきらめないでさいごまでプログラミングをがんばる",
+            "るすばんのいぬがへやのなかでゴムのボールをおいかけている",
+            "じてんしゃでやまをこえてピンクのうみのみえるばしょへいく",
+            "きのうふったあめのおかげでくうきがとてもきれいでほっとした",
+            "おなかがすいたのでしょくどうでぎょうざとラーメンをたのむ",
+            "ろくじにおきてつめたいみずをコップいっぱいのんでからでかける",
+            "わるいかぜをひいてしまいベッドできょうははやくねることにした",
+            "あたらしいキーボードとマウスのセットはとてもうちやすい",
+            "びじゅつかんでピカソのえをみてすばらしいデザインにかんどうした",
+            "しんかんせんのきっぷをかってふゆのおんせんりょこうにいく",
+            "どんなにむずかしいプロジェクトでもすこしずつかいけつできる"
+        ];
+
+        const ALL_KEYS_GROUPS = [
+            "あ い う え お か き く け こ さ し す せ そ た ち つ て と な に ぬ ね の は ひ ふ へ ほ ま み む め も や ゆ よ ら り る れ ろ わ を ん 、 。 ？ ！ ア イ ウ エ オ カ キ ク ケ コ サ シ ス セ ソ タ チ ツ テ ト ナ ニ ヌ ネ ノ ハ ヒ フ ヘ ホ マ ミ ム メ モ ヤ ユ ヨ ラ リ ル レ ロ ワ ヲ ン",
+            "が ぎ ぐ げ ご ざ じ ず ぜ ぞ だ ぢ づ で ど ば び ぶ べ ぼ ぱ ぴ ぷ ぺ ぽ ガ ギ グ ゲ ゴ ザ ジ ズ ゼ ゾ ダ ヂ ヅ デ ド バ ビ ブ ベ ボ パ ピ プ ペ ポ",
+            "きゃ きゅ きょ しゃ しゅ しょ ちゃ ちゅ ちょ にゃ にゅ にょ ひゃ ひゅ ひょ みゃ みゅ みょ りゃ りゅ りょ ぎゃ ぎゅ ぎょ じゃ じゅ じょ びゃ びゅ びょ ぴゃ ぴゅ ぴょ かった まって やった わかった いって もっと ずっと きっと ちょっと やっぱり きっぷ しっぽ さっき あっち そっち どっち みっか よっか ざっし けっこう すっごい",
+            "アー イー ウー エー オー カー キー クー ケー コー サー シー スー セー ソー ター チー ツー テー トー キャー キュー キョー シャー シュー ショー チャー チュー チョー ジャー ジュー ジョー"
+        ];
+
+        let activePool = JSON.parse(SafeStorage.get('kana_practice_custom_pool', JSON.stringify(DEFAULT_POOL)));
+        let currentArticle = '';
+        let currentArticleChars = [];
+        let leftBubbleEl = null;
+        let rightBubbleEl = null;
+        let userChatRowEl = null;
+        let charSpans = [];
+        
+        let cumulativeMistakes = 0;
+        let lastStatusArray = [];
+        let lastInputLength = 0;
+        let isCompleting = false;
+        let imeCompletionFallbackTimer = null;
+        let isComposing = false;
+        let lastScrolledLength = -1;
+
+        let turnQueue = [];
+        let turnIndex = 0;
+        let turnErrorAccum = 0;
+        let turnTotalAccum = 0;
+
+        const chatArea = document.getElementById('chat-area');
+        const inputEl = document.getElementById('kana-input');
+        const progressEl = document.getElementById('progress');
+        const appContainer = document.getElementById('app-container');
+
+        inputEl.addEventListener('compositionstart', () => { isComposing = true; });
+        inputEl.addEventListener('compositionupdate', checkInput);
+        inputEl.addEventListener('compositionend', () => { 
+            isComposing = false; 
+            checkInput();
+        });
+
+        function restoreCaretToEnd() {
+            const len = inputEl.value.length;
+            setTimeout(() => {
+                // 只呼叫一次 setSelectionRange(len, len) 不夠：如果瀏覽器認為選取範圍
+                // 本來就已經是 (len, len)（跟切走前一樣），就不會觸發「捲動到游標可見」
+                // 的內部邏輯，畫面會停在舊的捲動位置，看不到游標。
+                // 所以先把選取範圍歸零，強迫狀態改變，再設回結尾，逼瀏覽器重新計算捲動。
+                inputEl.setSelectionRange(0, 0);
+                inputEl.setSelectionRange(len, len);
+                // 保險再手動把輸入框捲到最右（scrollWidth），讓之前打過的字往左推出可視區域，
+                // 搭配輸入框本身的右內距（padding-right），可視區域右側會空出一小格給使用者
+                // 看到游標、接著繼續輸入。部分瀏覽器對 scrollLeft 的寫入是非同步生效，
+                // 所以延遲到下一個 frame 再設一次，確保真的有捲到底。
+                inputEl.scrollLeft = inputEl.scrollWidth;
+                requestAnimationFrame(() => { inputEl.scrollLeft = inputEl.scrollWidth; });
+            }, 0);
+        }
+        inputEl.addEventListener('focus', restoreCaretToEnd);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && !inputEl.disabled) {
+                // 切到其他 App 時，手機瀏覽器通常會把輸入框的焦點拿掉（連帶收起鍵盤），
+                // 所以回來時不能只在「原本就還聚焦」才處理，改成主動重新聚焦一次，
+                // 游標才會正確定位在已輸入內容的最後面。
+                inputEl.focus();
+                restoreCaretToEnd();
+            }
+        });
+
+        function syncViewport() {
+            if (window.visualViewport) {
+                const vv = window.visualViewport;
+                appContainer.style.height = vv.height + 'px';
+                appContainer.style.transform = vv.offsetTop ? `translateY(${vv.offsetTop}px)` : '';
+            }
+            window.scrollTo(0, 0);
+            if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+        inputEl.addEventListener('focus', () => {
+            syncViewport();
+            requestAnimationFrame(syncViewport);
+            [0, 50, 100, 200, 300, 500, 800].forEach(delay => setTimeout(syncViewport, delay));
+        });
+        window.addEventListener('resize', syncViewport);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', syncViewport);
+            window.visualViewport.addEventListener('scroll', syncViewport);
+        } else {
+            syncViewport();
+        }
+
+        function isTestableKana(ch) {
+            return /[\u3040-\u309F\u30A0-\u30FFー\-－ｰ、。？！…〜（）]/.test(ch);
+        }
+
+        function shuffle(arr) {
+            const a = arr.slice();
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        function init(customText = null) {
+            chatArea.innerHTML = '';
+            CpmTracker.reset();
+            turnQueue = [];
+            turnIndex = 0;
+            turnErrorAccum = 0;
+            turnTotalAccum = 0;
+
+            if (customText) {
+                turnQueue = [customText];
+            } else {
+                turnQueue = shuffle(activePool).slice(0, Math.min(6, activePool.length));
+            }
+            
+            if (turnQueue.length > 0) {
+                beginTurn(turnQueue[0]);
+            }
+        }
+
+        function replay() {
+            if (turnQueue.length === 0) return;
+            chatArea.innerHTML = '';
+            CpmTracker.reset();
+            turnIndex = 0;
+            turnErrorAccum = 0;
+            turnTotalAccum = 0;
+            beginTurn(turnQueue[0]);
+        }
+
+        function initMultiTurn(fullText) {
+            const EXCERPT_LEN = 200;
+            const chars = Array.from(fullText);
+            let excerpt = fullText;
+            
+            if (chars.length > EXCERPT_LEN) {
+                const start = Math.floor(Math.random() * (chars.length - EXCERPT_LEN + 1));
+                excerpt = chars.slice(start, start + EXCERPT_LEN).join('');
+            }
+            
+            chatArea.innerHTML = '';
+            CpmTracker.reset();
+            
+            const turns = 6;
+            const base = Math.floor(Array.from(excerpt).length / turns);
+            turnQueue = [];
+            let idx = 0;
+            const excerptChars = Array.from(excerpt);
+            
+            for (let t = 0; t < turns; t++) {
+                const isLast = t === turns - 1;
+                const len = isLast ? (excerptChars.length - idx) : base;
+                if (len > 0) {
+                    turnQueue.push(excerptChars.slice(idx, idx + len).join(''));
+                }
+                idx += len;
+            }
+            
+            turnIndex = 0;
+            turnErrorAccum = 0;
+            turnTotalAccum = 0;
+            
+            if (turnQueue.length > 0) {
+                beginTurn(turnQueue[0]);
+            }
+        }
+
+        function beginTurn(text) {
+            inputEl.value = '';
+            inputEl.disabled = false;
+
+            currentArticle = text;
+            currentArticleChars = Array.from(currentArticle);
+
+            cumulativeMistakes = 0;
+            lastStatusArray = [];
+            lastInputLength = 0;
+            lastScrolledLength = -1;
+            isCompleting = false;
+            isComposing = false;
+            if (imeCompletionFallbackTimer) { clearTimeout(imeCompletionFallbackTimer); imeCompletionFallbackTimer = null; }
+
+            const timeStr = getCurrentTimeStr();
+
+            const leftRow = document.createElement('div');
+            leftRow.className = 'chat-row left';
+            
+            const avatarImg = document.createElement('img');
+            avatarImg.src = 'icon.png';
+            avatarImg.className = 'chat-avatar';
+            avatarImg.alt = 'System';
+            
+            const leftMsgGroup = document.createElement('div');
+            leftMsgGroup.className = 'chat-message-group';
+
+            leftBubbleEl = document.createElement('div');
+            leftBubbleEl.className = 'chat-bubble';
+            charSpans = currentArticleChars.map(ch => {
+                const span = document.createElement('span');
+                span.className = 'target-char';
+                span.textContent = ch;
+                leftBubbleEl.appendChild(span);
+                return span;
+            });
+            
+            const leftTimeEl = document.createElement('div');
+            leftTimeEl.className = 'chat-time';
+            leftTimeEl.textContent = timeStr;
+
+            leftMsgGroup.appendChild(leftBubbleEl);
+            leftMsgGroup.appendChild(leftTimeEl);
+            
+            leftRow.appendChild(avatarImg);
+            leftRow.appendChild(leftMsgGroup);
+            chatArea.appendChild(leftRow);
+
+            const rightRow = document.createElement('div');
+            rightRow.className = 'chat-row right';
+            userChatRowEl = rightRow;
+            userChatRowEl.style.display = 'none'; 
+            
+            const rightMsgGroup = document.createElement('div');
+            rightMsgGroup.className = 'chat-message-group';
+            
+            const rightTimeEl = document.createElement('div');
+            rightTimeEl.className = 'chat-time';
+            rightTimeEl.textContent = timeStr;
+            
+            rightBubbleEl = document.createElement('div');
+            rightBubbleEl.className = 'chat-bubble';
+            rightBubbleEl.textContent = '...';
+            
+            rightMsgGroup.appendChild(rightTimeEl);
+            rightMsgGroup.appendChild(rightBubbleEl);
+            
+            rightRow.appendChild(rightMsgGroup);
+            chatArea.appendChild(rightRow);
+
+            progressEl.textContent = `0 / ${currentArticleChars.length}`;
+            inputEl.focus({ preventScroll: true });
+
+            const scrollToBottom = () => { chatArea.scrollTop = chatArea.scrollHeight; };
+            scrollToBottom();
+            [50, 150, 300, 500].forEach(delay => setTimeout(scrollToBottom, delay));
+        }
+
+        function checkInput() {
+            if (isCompleting) return;
+            const currentInput = inputEl.value; 
+            const inputChars = Array.from(currentInput);           
+            
+            if (inputChars.length > 0) {
+                if (userChatRowEl && userChatRowEl.style.display === 'none') {
+                    userChatRowEl.style.display = 'flex';
+                    syncViewport();
+                    requestAnimationFrame(() => { chatArea.scrollTop = chatArea.scrollHeight; });
+                    [50, 150].forEach(delay => setTimeout(() => { chatArea.scrollTop = chatArea.scrollHeight; }, delay));
+                }
+            } else {
+                if (userChatRowEl && userChatRowEl.style.display === 'flex') {
+                    userChatRowEl.style.display = 'none';
+                }
+            }
+
+            CpmTracker.onKeystroke(inputChars.length);
+            progressEl.textContent = `${Math.min(inputChars.length, currentArticleChars.length)} / ${currentArticleChars.length}`;
+            rightBubbleEl.textContent = currentInput || '...';
+
+            for (let i = 0; i < currentArticleChars.length; i++) {
+                const span = charSpans[i];
+
+                if (i >= inputChars.length) {
+                    span.style.fontWeight = '400';
+                    span.style.fontStyle = 'normal';
+                    if (!isComposing) {
+                        lastStatusArray[i] = undefined;
+                    }
+                    continue;
+                }
+
+                const targetChar = currentArticleChars[i];
+                const inputChar = inputChars[i];
+                const isTestable = isTestableKana(targetChar); 
+
+                let status;
+                if (!isTestable) {
+                    status = 'correct';
+                } else {
+                    status = KanaMatcher.classify(
+                        targetChar, inputChar,
+                        currentArticleChars[i - 1], inputChars[i - 1]
+                    );
+                    if (status === 'pending' && i !== inputChars.length - 1) {
+                        status = 'error';
+                    }
+                }
+                
+                if (status === 'correct' || status === 'correct-kata') {
+                    span.style.fontWeight = '900';
+                } else {
+                    span.style.fontWeight = '400';
+                }
+                
+                span.style.fontStyle = (status === 'error') ? 'italic' : 'normal';
+                
+                if (status === 'error') {
+                    if (isTestable) {
+                        if (!isComposing && lastStatusArray[i] !== 'error') {
+                            cumulativeMistakes++;
+                        }
+                    }
+                }
+                
+                if (!isComposing) {
+                    lastStatusArray[i] = status;
+                }
+            }
+
+            if (inputChars.length > currentArticleChars.length) {
+                if (!isComposing && inputChars.length > lastInputLength) {
+                    cumulativeMistakes += (inputChars.length - Math.max(currentArticleChars.length, lastInputLength));
+                }
+            }
+
+            if (!isComposing) {
+                lastInputLength = inputChars.length;
+            }
+
+            if (inputChars.length !== lastScrolledLength) {
+                lastScrolledLength = inputChars.length;
+                chatArea.scrollTop = chatArea.scrollHeight;
+            }
+
+            let isComplete = false;
+            
+            if (inputChars.length >= currentArticleChars.length) {
+                isComplete = true;
+            }
+
+            if (isComplete && isComposing) {
+                if (!imeCompletionFallbackTimer) {
+                    imeCompletionFallbackTimer = setTimeout(() => {
+                        imeCompletionFallbackTimer = null;
+                        if (isCompleting) return;
+                        isComposing = false;
+                        checkInput();
+                    }, 500);
+                }
+                return;
+            }
+
+            if (imeCompletionFallbackTimer) { clearTimeout(imeCompletionFallbackTimer); imeCompletionFallbackTimer = null; }
+
+            if (isComplete) {
+                const totalTestableCount = currentArticleChars.filter(isTestableKana).length;
+                const hasMoreTurns = turnQueue.length > 0 && turnIndex < turnQueue.length - 1;
+
+                if (hasMoreTurns) {
+                    isCompleting = true;
+                    turnErrorAccum += cumulativeMistakes;
+                    turnTotalAccum += totalTestableCount;
+                    turnIndex++;
+                    
+                    setTimeout(() => {
+                        beginTurn(turnQueue[turnIndex]);
+                    }, 400);
+                } else {
+                    isCompleting = true;
+                    handleCompletion(turnErrorAccum + cumulativeMistakes, turnTotalAccum + totalTestableCount);
+                }
+            }
+        }
+
+        function appendSystemBubble(text) {
+            const row = document.createElement('div');
+            row.className = 'chat-row left';
+
+            const avatarImg = document.createElement('img');
+            avatarImg.src = 'icon.png';
+            avatarImg.className = 'chat-avatar';
+            avatarImg.alt = 'System';
+
+            const msgGroup = document.createElement('div');
+            msgGroup.className = 'chat-message-group';
+
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble';
+            String(text).split('\n').forEach((line, idx) => {
+                if (idx > 0) bubble.appendChild(document.createElement('br'));
+                bubble.appendChild(document.createTextNode(line));
+            });
+
+            const timeEl = document.createElement('div');
+            timeEl.className = 'chat-time';
+            timeEl.textContent = getCurrentTimeStr();
+
+            msgGroup.appendChild(bubble);
+            msgGroup.appendChild(timeEl);
+            row.appendChild(avatarImg);
+            row.appendChild(msgGroup);
+            chatArea.appendChild(row);
+            chatArea.scrollTop = chatArea.scrollHeight;
+            return bubble;
+        }
+
+        function appendUserBubble(text) {
+            const row = document.createElement('div');
+            row.className = 'chat-row right';
+
+            const msgGroup = document.createElement('div');
+            msgGroup.className = 'chat-message-group';
+
+            const timeEl = document.createElement('div');
+            timeEl.className = 'chat-time';
+            timeEl.textContent = getCurrentTimeStr();
+
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble';
+            bubble.textContent = text;
+
+            msgGroup.appendChild(timeEl);
+            msgGroup.appendChild(bubble);
+
+            row.appendChild(msgGroup);
+            chatArea.appendChild(row);
+            chatArea.scrollTop = chatArea.scrollHeight;
+            return bubble;
+        }
+
+        function saveHistoryRecord() {
+            const records = JSON.parse(SafeStorage.get('kana_practice_records', '[]'));
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const dateStr = `${now.getFullYear()}/${pad(now.getMonth() + 1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            records.unshift({ date: dateStr, cpm: '💬 ' + CpmTracker.getDisplayText() });
+            SafeStorage.set('kana_practice_records', JSON.stringify(records.slice(0, 200)));
+        }
+
+        function handleCompletion(errorCount, totalCount) {
+            setTimeout(() => {
+                inputEl.disabled = true;
+                CpmTracker.stop();
+
+                appendSystemBubble('練習完了！お疲れ様でした。');
+
+                setTimeout(() => {
+                    const acc = totalCount === 0 ? "100" : Math.max(0, ((totalCount - errorCount) / totalCount) * 100).toFixed(0);
+                    const resultText = errorCount === 0
+                        ? '入力履歴を保存しますか？'
+                        : `ミス数：${errorCount} / 正解率：${acc}%\n入力履歴を保存しますか？`;
+                    appendSystemBubble(resultText);
+
+                    appendInlineActions([
+                        {
+                            label: '保存', onClick: () => {
+                                appendUserBubble('保存');
+                                saveHistoryRecord();
+                                appendSystemBubble('入力履歴を保存しました！');
+                                showNextStepActions();
+                            }
+                        },
+                        {
+                            label: 'キャンセル', onClick: () => {
+                                appendUserBubble('キャンセル');
+                                appendSystemBubble('キャンセルしました！');
+                                showNextStepActions();
+                            }
+                        }
+                    ]);
+                }, 400);
+            }, 150);
+
+            function showNextStepActions() {
+                appendInlineActions([
+                    { label: 'もう一度', onClick: () => PracticeEngine.replay() },
+                    { label: 'シャッフル', onClick: () => PracticeEngine.init() },
+                    {
+                        label: '📊', onClick: () => {
+                            renderHistory();
+                            ModalManager.open(document.getElementById('history-modal'));
+                        }
+                    }
+                ]);
+            }
+        }
+
+        CpmTracker.configure({ getInputLength: () => inputEl.value.length, isReadOnly: () => inputEl.disabled });
+        inputEl.addEventListener('input', checkInput);
+
+        return {
+            init,
+            initMultiTurn,
+            replay,
+            getPool: () => activePool,
+            setPool: (p) => { activePool = p; SafeStorage.set('kana_practice_custom_pool', JSON.stringify(p)); },
+            resetPool: () => { activePool = DEFAULT_POOL; SafeStorage.set('kana_practice_custom_pool', JSON.stringify(DEFAULT_POOL)); },
+            getGroupKey: (idx) => shuffle(ALL_KEYS_GROUPS[idx].split(/\s+/)).join('')
+        };
+    })();
+
+    function renderHistory() {
+        const list = document.getElementById('history-list');
+        const records = JSON.parse(SafeStorage.get('kana_practice_records', '[]'));
+        if (!records.length) {
+            list.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding: 20px 0;">入力履歴はありません</div>';
+            return;
+        }
+        list.innerHTML = records.map(r => `<div class="history-item"><span class="history-date">${escapeHtml(r.date)}</span><span class="history-cpm" style="font-weight: 700; color: var(--accent-color);">${escapeHtml(r.cpm)}</span></div>`).join('');
+    }
+
+    function bindModals() {
+        ThemeManager.init();
+
+        const hamburgerBtn = document.getElementById('hamburger-btn');
+        const hamburgerMenu = document.getElementById('hamburger-menu');
+
+        hamburgerBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            hamburgerMenu.style.display = hamburgerMenu.style.display === 'flex' ? 'none' : 'flex';
+        });
+
+        document.addEventListener('click', (e) => {
+            if (hamburgerMenu.style.display === 'flex' && !hamburgerMenu.contains(e.target)) {
+                hamburgerMenu.style.display = 'none';
+            }
+        });
+
+        function closeMenu() {
+            hamburgerMenu.style.display = 'none';
+        }
+
+        document.getElementById('menu-shuffle').onclick = () => { closeMenu(); PracticeEngine.init(); };
+
+        const allKeysModal = document.getElementById('all-keys-modal');
+        document.getElementById('menu-allkeys').onclick = () => { closeMenu(); ModalManager.open(allKeysModal); };
+        document.getElementById('cancel-all-keys-btn').onclick = () => ModalManager.close(allKeysModal);
+        [
+            ['all-keys-hiragana-btn', 0],
+            ['all-keys-katakana-btn', 1],
+            ['all-keys-youon-btn', 2],
+            ['all-keys-gairai-btn', 3]
+        ].forEach(([btnId, groupIndex]) => {
+            document.getElementById(btnId).onclick = () => {
+                ModalManager.close(allKeysModal);
+                PracticeEngine.init(PracticeEngine.getGroupKey(groupIndex));
+            };
+        });
+
+        const pasteModal = document.getElementById('paste-modal');
+        document.getElementById('menu-paste').onclick = () => { closeMenu(); ModalManager.open(pasteModal); };
+        document.getElementById('cancel-paste-btn').onclick = () => ModalManager.close(pasteModal);
+        document.getElementById('clear-paste-btn').onclick = () => {
+            document.getElementById('paste-textarea').value = '';
+            UiFeedback.alert('クリアしました。');
+        };
+        document.getElementById('save-paste-btn').onclick = () => {
+            const val = document.getElementById('paste-textarea').value
+                .replace(/[\s\r\n]+/g, '')
+                .replace(/[\p{Extended_Pictographic}\u200D\uFE0F\u{1F3FB}-\u{1F3FF}]/gu, '');
+            if (val.length === 0) {
+                UiFeedback.alert('テキストが入力されていません。');
+                return;
+            }
+            if (Array.from(val).length > 1500) {
+                UiFeedback.alert('1,500文字以内の文章を入力してください。');
+                return;
+            }
+            PracticeEngine.initMultiTurn(val);
+            ModalManager.close(pasteModal);
+        };
+
+        const editModal = document.getElementById('edit-modal');
+        document.getElementById('menu-phrase').onclick = () => { 
+            closeMenu();
+            document.getElementById('edit-textarea').value = PracticeEngine.getPool().join('\n');
+            ModalManager.open(editModal);
+        };
+        document.getElementById('cancel-edit-btn').onclick = () => ModalManager.close(editModal);
+        document.getElementById('reset-edit-btn').onclick = () => {
+            PracticeEngine.resetPool();
+            document.getElementById('edit-textarea').value = PracticeEngine.getPool().join('\n');
+            UiFeedback.alert('リセットしました。');
+        };
+        document.getElementById('save-edit-btn').onclick = () => {
+            const rawText = document.getElementById('edit-textarea').value.replace(/[\p{Extended_Pictographic}\u200D\uFE0F\u{1F3FB}-\u{1F3FF}]/gu, '');
+            const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            if (lines.length === 0) {
+                UiFeedback.alert('フレーズ集は空にできません。');
+                return;
+            }
+            PracticeEngine.setPool(lines);
+            ModalManager.close(editModal);
+            PracticeEngine.init();
+        };
+
+        document.getElementById('menu-classic').onclick = () => { 
+            window.location.href = './'; 
+        };
+
+        const historyModal = document.getElementById('history-modal');
+        document.getElementById('close-history-btn').onclick = () => ModalManager.close(historyModal);
+        document.getElementById('clear-history-btn').onclick = () => {
+            UiFeedback.confirm('すべての入力履歴を削除しますか？この操作は元に戻せません。', () => {
+                localStorage.removeItem('kana_practice_records');
+                renderHistory();
+            });
+        };
+
+        document.getElementById('export-btn').onclick = () => {
+            const dataUri = "data:text/json;charset=utf-8," + encodeURIComponent(SafeStorage.get('kana_practice_records', '[]'));
+            const a = document.createElement('a');
+            a.setAttribute('href', dataUri);
+            a.setAttribute('download', 'kana_records.json');
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        };
+
+        const importFile = document.getElementById('import-file');
+        document.getElementById('import-btn').onclick = () => importFile.click();
+        importFile.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const imported = JSON.parse(evt.target.result);
+                    if (!Array.isArray(imported)) throw new Error('Format Invalid');
+                    
+                    const current = JSON.parse(SafeStorage.get('kana_practice_records', '[]'));
+                    const merged = [...imported, ...current];
+                    
+                    const unique = Array.from(new Set(merged.map(r => JSON.stringify(r)))).map(s => JSON.parse(s));
+                    unique.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    
+                    SafeStorage.set('kana_practice_records', JSON.stringify(unique.slice(0, 200)));
+                    renderHistory();
+                    UiFeedback.alert('入力履歴をインポートしました。');
+                } catch (err) {
+                    UiFeedback.alert('対応していないファイル形式です。');
+                }
+                importFile.value = '';
+            };
+            reader.readAsText(file);
+        };
+    }
+
+    window.onload = () => {
+        bindModals();
+        PracticeEngine.init();
+    };
+})();
+</script>
+</body>
+</html>

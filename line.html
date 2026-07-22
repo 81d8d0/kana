@@ -469,10 +469,6 @@
         navigator.serviceWorker.register('./sw.js').catch(err => console.error('SW Fail', err));
     }
 
-    // 跟 index.html 同一套修法：從 index.html 切換過來、鍵盤還在收合過程中時，
-    // 100dvh 可能被卡在舊頁面鍵盤還開著那個瞬間的高度。用 JS 實際量測
-    // window.innerHeight 蓋掉 CSS 的 100dvh，resize/orientationchange 時
-    // 重新量一次，確保一定是用當下正確的高度。
     function setAppHeight() {
         document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
     }
@@ -734,16 +730,8 @@
         function restoreCaretToEnd() {
             const len = inputEl.value.length;
             setTimeout(() => {
-                // 只呼叫一次 setSelectionRange(len, len) 不夠：如果瀏覽器認為選取範圍
-                // 本來就已經是 (len, len)（跟切走前一樣），就不會觸發「捲動到游標可見」
-                // 的內部邏輯，畫面會停在舊的捲動位置，看不到游標。
-                // 所以先把選取範圍歸零，強迫狀態改變，再設回結尾，逼瀏覽器重新計算捲動。
                 inputEl.setSelectionRange(0, 0);
                 inputEl.setSelectionRange(len, len);
-                // 保險再手動把輸入框捲到最右（scrollWidth），讓之前打過的字往左推出可視區域，
-                // 搭配輸入框本身的右內距（padding-right），可視區域右側會空出一小格給使用者
-                // 看到游標、接著繼續輸入。部分瀏覽器對 scrollLeft 的寫入是非同步生效，
-                // 所以延遲到下一個 frame 再設一次，確保真的有捲到底。
                 inputEl.scrollLeft = inputEl.scrollWidth;
                 requestAnimationFrame(() => { inputEl.scrollLeft = inputEl.scrollWidth; });
             }, 0);
@@ -751,9 +739,6 @@
         inputEl.addEventListener('focus', restoreCaretToEnd);
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && !inputEl.disabled) {
-                // 切到其他 App 時，手機瀏覽器通常會把輸入框的焦點拿掉（連帶收起鍵盤），
-                // 所以回來時不能只在「原本就還聚焦」才處理，改成主動重新聚焦一次，
-                // 游標才會正確定位在已輸入內容的最後面。
                 inputEl.focus();
                 restoreCaretToEnd();
             }

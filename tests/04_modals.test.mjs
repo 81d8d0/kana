@@ -7,6 +7,13 @@ test('E2E: Modals open/close behaviors and dark mode toggle', async () => {
     const client = await launchHeadlessChrome(server.url, '/index.html');
 
     try {
+        // Wait for DOM to be ready
+        for (let i = 0; i < 30; i++) {
+            const ready = await client.evaluate(`typeof ThemeManager !== "undefined" && document.getElementById("theme-toggle-btn") !== null`);
+            if (ready) break;
+            await new Promise(r => setTimeout(r, 50));
+        }
+
         // 1. Test Dark Mode Toggle
         const isDarkBefore = await client.evaluate(`document.body.classList.contains('dark-mode')`);
         await client.evaluate(`document.getElementById('theme-toggle-btn').click()`);

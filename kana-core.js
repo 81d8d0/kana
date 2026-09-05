@@ -321,7 +321,14 @@
             return "data:text/json;charset=utf-8," + encodeURIComponent(SafeStorage.get(STORAGE_KEY, '[]'));
         }
 
-        return { load, save, clear, isValidRecord, importFromJson, exportToDataUri, MAX_RECORDS };
+        function getExportFileName(date = new Date()) {
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, "0");
+            const dd = String(date.getDate()).padStart(2, "0");
+            return `kana_record_${yyyy}${mm}${dd}.json`;
+        }
+
+        return { load, save, clear, isValidRecord, importFromJson, exportToDataUri, getExportFileName, STORAGE_KEY, MAX_RECORDS };
     })();
 
     // 7. ModalManager: unified modal dialog stack with animations, Esc key, backdrop & scroll lock
@@ -613,12 +620,28 @@
 
         function downloadExport() {
             if (typeof document === 'undefined') return;
-            const a = document.createElement('a');
-            a.setAttribute('href', HistoryStore.exportToDataUri());
-            a.setAttribute('download', 'kana_records.json');
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+            const recordsJson = SafeStorage.get(HistoryStore.STORAGE_KEY, '[]');
+            const fileName = HistoryStore.getExportFileName();
+            try {
+                const blob = new Blob([recordsJson], { type: 'application/json;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                }, 100);
+            } catch (e) {
+                const a = document.createElement('a');
+                a.setAttribute('href', HistoryStore.exportToDataUri());
+                a.setAttribute('download', fileName);
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            }
         }
 
         function bind({

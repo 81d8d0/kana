@@ -7,6 +7,13 @@ test('E2E: Document ↔ Classic layout switch preserves typing state and progres
     const client = await launchHeadlessChrome(server.url, '/index.html');
 
     try {
+        // Wait for DOM to be ready
+        for (let i = 0; i < 30; i++) {
+            const ready = await client.evaluate(`document.querySelectorAll(".char-wrapper .char-target").length >= 4`);
+            if (ready) break;
+            await new Promise(r => setTimeout(r, 50));
+        }
+
         // 1. Check initial state
         const initial = await client.evaluate(`({
             bodyClass: document.body.className,

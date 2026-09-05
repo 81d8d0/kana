@@ -57,7 +57,18 @@ test('HistoryStore: JSON import validation', () => {
     assert.throws(() => HistoryStore.importFromJson(JSON.stringify([])));
 });
 
-test('Sentence Pool & All Keys groups data integrity', () => {
+test("HistoryStore: getExportFileName format (kana_record_YYYYMMDD.json)", () => {
+    const fileName = HistoryStore.getExportFileName();
+    assert.match(fileName, /^kana_record_\d{8}\.json$/, "匯出檔名格式必須為 kana_record_西元年月日.json");
+
+    const testDate = new Date(2026, 8, 5); // 2026-09-05
+    assert.strictEqual(HistoryStore.getExportFileName(testDate), "kana_record_20260905.json");
+
+    const testDateJan = new Date(2027, 0, 1); // 2027-01-01
+    assert.strictEqual(HistoryStore.getExportFileName(testDateJan), "kana_record_20270101.json");
+});
+
+test("Sentence Pool & All Keys groups data integrity", () => {
     assert.ok(Array.isArray(DEFAULT_POOL));
     assert.ok(DEFAULT_POOL.length >= 10, 'Pool should have at least 10 practice sentences');
     for (const sentence of DEFAULT_POOL) {

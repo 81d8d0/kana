@@ -610,12 +610,56 @@
 
         function scrollToActive(span) {
             if (!span || !textLayerEl) return;
-            const containerRect = textLayerEl.getBoundingClientRect();
+
+            const headerEl = document.getElementById('header');
+            const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : 60;
+
+            const viewportBottom = window.visualViewport 
+                ? (window.visualViewport.offsetTop + window.visualViewport.height) 
+                : window.innerHeight;
+
+            const isClassic = typeof LayoutManager !== 'undefined' && LayoutManager.getActiveLayout() === 'classic';
+            const inputAreaEl = document.getElementById('input-area');
+            const inputAreaRect = (isClassic && inputAreaEl) ? inputAreaEl.getBoundingClientRect() : null;
+
+            const controlsEl = document.getElementById('controls');
+            const controlsRect = controlsEl ? controlsEl.getBoundingClientRect() : null;
+
+            let boundaryBottom = viewportBottom;
+            if (inputAreaRect && inputAreaRect.top > headerBottom && inputAreaRect.top < boundaryBottom) {
+                boundaryBottom = inputAreaRect.top;
+            } else if (controlsRect && controlsRect.top > headerBottom && controlsRect.top < boundaryBottom) {
+                boundaryBottom = controlsRect.top;
+            }
+
             const spanRect = span.getBoundingClientRect();
-            const isAbove = spanRect.top < containerRect.top + 60;
-            const isBelow = spanRect.bottom > containerRect.bottom - 100;
-            if (isAbove || isBelow) {
-                span.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            const lineHeight = Math.max(spanRect.height || 0, isClassic ? 45 : 55);
+
+            // 頂部防護：Backspace 刪字回到上方被 header 遮擋時往下回捲
+            if (spanRect.top < headerBottom + 8) {
+                const scrollDownAmount = (headerBottom + 8) - spanRect.top;
+                textLayerEl.scrollTo({
+                    top: Math.max(0, textLayerEl.scrollTop - scrollDownAmount),
+                    behavior: 'smooth'
+                });
+                return;
+            }
+
+            // 倒數最2列打完判定：
+            // 當倒數最2列最後一字打完，焦點字進入倒數第1列（底部小於等於 0.8 列空間即進入最後一列）
+            // 自動平滑往上捲動 2 列（2 * lineHeight），並確保下方保留 2 列預覽視野
+            const twoLinesBuffer = 2 * lineHeight;
+            const triggerThreshold = boundaryBottom - (0.8 * lineHeight);
+
+            if (spanRect.bottom > triggerThreshold) {
+                const baseScrollUp = twoLinesBuffer;
+                const overflowAmount = spanRect.bottom > boundaryBottom ? (spanRect.bottom - (boundaryBottom - twoLinesBuffer)) : 0;
+                const scrollAmount = Math.max(baseScrollUp, overflowAmount);
+
+                textLayerEl.scrollTo({
+                    top: textLayerEl.scrollTop + scrollAmount,
+                    behavior: 'smooth'
+                });
             }
         }
 
@@ -1055,7 +1099,7 @@
 
                 const activeIndex = Math.min(Array.from(currentVal).length, Math.max(0, currentArticleChars.length - 1));
                 if (cachedSpans[activeIndex]) {
-                    cachedSpans[activeIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    ViewportManager.scrollToActive(cachedSpans[activeIndex]);
                 }
             }, 300);
         }

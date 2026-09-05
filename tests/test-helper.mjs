@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import http from 'http';
 import vm from 'vm';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -73,16 +73,91 @@ export function createStaticServer(port = 8190) {
 }
 
 /**
+ * Resolves Chrome / Chromium executable path across macOS, Linux, and Windows.
+ * Supports CHROME_PATH, PUPPETEER_EXECUTABLE_PATH, and GOOGLE_CHROME_BIN env vars.
+ */
+export function findChromeExecutable() {
+    // 1. Check environment variables
+    const envCandidate = process.env.CHROME_PATH ||
+                         process.env.PUPPETEER_EXECUTABLE_PATH ||
+                         process.env.GOOGLE_CHROME_BIN ||
+                         process.env.CHROMIUM_PATH;
+    if (envCandidate && fs.existsSync(envCandidate)) {
+        return envCandidate;
+    }
+
+    // 2. Check platform-specific common locations
+    const platform = process.platform;
+    const candidates = [];
+
+    if (platform === 'darwin') {
+        candidates.push(
+            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+            '/Applications/Chromium.app/Contents/MacOS/Chromium',
+            `${process.env.HOME}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+        );
+    } else if (platform === 'linux') {
+        candidates.push(
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+            '/snap/bin/chromium'
+        );
+    } else if (platform === 'win32') {
+        const programFiles = process.env.PROGRAMFILES || 'C:\\Program Files';
+        const programFilesX86 = process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)';
+        const localAppData = process.env.LOCALAPPDATA || '';
+        candidates.push(
+            path.join(programFiles, 'Google\\Chrome\\Application\\chrome.exe'),
+            path.join(programFilesX86, 'Google\\Chrome\\Application\\chrome.exe'),
+            path.join(localAppData, 'Google\\Chrome\\Application\\chrome.exe')
+        );
+    }
+
+    for (const cand of candidates) {
+        if (cand && fs.existsSync(cand)) {
+            return cand;
+        }
+    }
+
+    // 3. Fallback: try PATH lookup via which/where
+    try {
+        const lookupCmd = platform === 'win32' ? 'where' : 'which';
+        const binaryNames = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'chrome'];
+        for (const bin of binaryNames) {
+            try {
+                const found = execSync(`${lookupCmd} ${bin}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim().split('\n')[0];
+                if (found && fs.existsSync(found)) return found;
+            } catch (e) {}
+        }
+    } catch (e) {}
+
+    // 4. Default platform fallback path
+    if (platform === 'darwin') {
+        return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    } else if (platform === 'linux') {
+        return '/usr/bin/google-chrome';
+    }
+    return 'chrome';
+}
+
+/**
  * Launches Headless Chrome and connects via WebSocket CDP
  */
 export async function launchHeadlessChrome(serverUrl, initialPath = '/index.html') {
     const debugPort = 9223 + Math.floor(Math.random() * 500);
     const tmpDir = `/tmp/chrome_test_${debugPort}`;
+    const chromePath = findChromeExecutable();
 
-    const chrome = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
+    const chrome = spawn(chromePath, [
         '--headless',
         `--remote-debugging-port=${debugPort}`,
         '--disable-gpu',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
         '--no-first-run',
         '--no-default-browser-check',
         `--user-data-dir=${tmpDir}`,

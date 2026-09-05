@@ -44,6 +44,17 @@
             } catch (err) {
                 return false;
             }
+        },
+        loadPool(key, fallback = null) {
+            try {
+                const s = this.get(key);
+                if (s) {
+                    const parsed = JSON.parse(s);
+                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                }
+            } catch (err) {}
+            const defaultPool = fallback || (typeof DEFAULT_POOL !== 'undefined' ? DEFAULT_POOL : []);
+            return Array.isArray(defaultPool) ? defaultPool.slice() : [];
         }
     };
 
@@ -65,6 +76,26 @@
 
     function retrySequence(fn, delays = [0, 50, 150, 300, 500]) {
         delays.forEach(d => setTimeout(fn, d));
+    }
+
+    function isTestableKana(ch) {
+        return /[\u3040-\u309F\u30A0-\u30FFー\-－ｰ、。？！…〜（）]/.test(ch);
+    }
+
+    function afterNextPaint(fn, delay = 0) {
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    if (delay > 0) {
+                        setTimeout(fn, delay);
+                    } else {
+                        fn();
+                    }
+                });
+            });
+        } else {
+            setTimeout(fn, delay);
+        }
     }
 
     const EMOJI_REGEX = /[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{E0020}-\u{E007F}\u200D\uFE0F\u{1F3FB}-\u{1F3FF}]/gu;
@@ -150,6 +181,183 @@
 
         return { classify };
     })();
+
+    // 4. TypingChecker: Unified flick typing assessment & scoring engine
+    class TypingChecker {
+        constructor(target = '', options = {}) {
+            this.reset(target, options);
+        }
+
+        reset(target = '', options = {}) {
+            this.target = typeof target === 'string' ? target : (Array.isArray(target) ? target.join('') : '');
+            this.targetChars = Array.from(this.target);
+            this.mode = options.mode || this.mode || 'document';
+            this.cumulativeMistakes = 0;
+            this.lastStatusArray = [];
+            this.lastInputLength = 0;
+            this.totalTestableCount = this.targetChars.filter(isTestableKana).length;
+        }
+
+        setMode(mode) {
+            this.mode = mode;
+        }
+
+        check(input = '', options = {}) {
+            const isComposing = !!options.isComposing;
+            const inputChars = typeof input === 'string' ? Array.from(input) : (Array.isArray(input) ? input : []);
+            const activeMode = options.mode || this.mode;
+
+            const res = TypingChecker.evaluate({
+                targetChars: this.targetChars,
+                inputChars,
+                lastStatusArray: this.lastStatusArray,
+                lastInputLength: this.lastInputLength,
+                cumulativeMistakes: this.cumulativeMistakes,
+                isComposing,
+                mode: activeMode
+            });
+
+            if (!isComposing) {
+                this.cumulativeMistakes = res.cumulativeMistakes;
+                this.lastStatusArray = res.lastStatusArray;
+                this.lastInputLength = res.lastInputLength;
+            }
+
+            return res;
+        }
+
+        static isTestableKana(ch) {
+            return isTestableKana(ch);
+        }
+
+        static evaluate({
+            targetChars = [],
+            inputChars = [],
+            lastStatusArray = [],
+            lastInputLength = 0,
+            cumulativeMistakes = 0,
+            isComposing = false,
+            mode = 'document'
+        } = {}) {
+            const tChars = Array.isArray(targetChars) ? targetChars : Array.from(String(targetChars || ''));
+            const iChars = Array.isArray(inputChars) ? inputChars : Array.from(String(inputChars || ''));
+            const totalTarget = tChars.length;
+            const totalInput = iChars.length;
+
+            const nextStatusArray = lastStatusArray.slice();
+            let nextCumulativeMistakes = cumulativeMistakes;
+            let nextInputLength = lastInputLength;
+
+            const statuses = new Array(totalTarget);
+            let hasError = false;
+            let allCorrect = true;
+            let hasPendingAtEnd = false;
+            const currentPassErrorIndices = [];
+
+            for (let i = 0; i < totalTarget; i++) {
+                if (i >= totalInput) {
+                    statuses[i] = undefined;
+                    if (!isComposing) {
+                        nextStatusArray[i] = undefined;
+                    }
+                    continue;
+                }
+
+                const targetChar = tChars[i];
+                const inputChar = iChars[i];
+                const isTestable = isTestableKana(targetChar);
+
+                let status;
+                if (!isTestable) {
+                    status = 'correct';
+                } else {
+                    status = KanaMatcher.classify(
+                        targetChar, inputChar,
+                        tChars[i - 1], iChars[i - 1]
+                    );
+
+                    if (status === 'pending') {
+                        if (i === totalInput - 1) {
+                            hasPendingAtEnd = true;
+                        } else {
+                            status = 'error';
+                        }
+                    }
+                }
+
+                statuses[i] = status;
+
+                if (status === 'error') {
+                    if (isTestable) {
+                        if (!isComposing && lastStatusArray[i] !== 'error') {
+                            nextCumulativeMistakes++;
+                        }
+                        currentPassErrorIndices.push(i);
+                    }
+                    hasError = true;
+                }
+
+                if (status !== 'correct' && status !== 'correct-kata') {
+                    allCorrect = false;
+                }
+
+                if (!isComposing) {
+                    nextStatusArray[i] = status;
+                }
+            }
+
+            if (totalInput > totalTarget) {
+                hasError = true;
+                if (!isComposing && totalInput > lastInputLength) {
+                    nextCumulativeMistakes += (totalInput - Math.max(totalTarget, lastInputLength));
+                }
+            }
+
+            if (!isComposing) {
+                nextInputLength = totalInput;
+            }
+
+            const currentInputStr = iChars.join('');
+            const targetStr = tChars.join('');
+            let isComplete = false;
+
+            if (mode === 'line') {
+                if (totalInput >= totalTarget) {
+                    isComplete = true;
+                }
+            } else if (mode === 'classic') {
+                if (currentInputStr === targetStr) {
+                    isComplete = true;
+                } else {
+                    isComplete = allCorrect && totalInput === totalTarget;
+                }
+            } else {
+                // 'document' mode
+                if (currentInputStr === targetStr) {
+                    isComplete = true;
+                } else if (totalInput > totalTarget) {
+                    isComplete = true;
+                } else if (totalInput === totalTarget) {
+                    isComplete = !hasPendingAtEnd;
+                }
+            }
+
+            const totalTestableCount = tChars.filter(isTestableKana).length;
+
+            return {
+                statuses,
+                hasError,
+                allCorrect,
+                hasPendingAtEnd,
+                isComplete,
+                cumulativeMistakes: nextCumulativeMistakes,
+                lastStatusArray: nextStatusArray,
+                lastInputLength: nextInputLength,
+                totalTestableCount,
+                currentPassErrorIndices
+            };
+        }
+    }
 
     // 4. CpmTracker: Characters-Per-Minute calculator & timer
     const CpmTracker = (() => {
@@ -338,15 +546,51 @@
         let onAllClosedCallback = null;
         let isInitialized = false;
 
+        function getFocusableElements(container) {
+            if (!container) return [];
+            const selector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+            return Array.from(container.querySelectorAll(selector)).filter((el) => {
+                return !el.hasAttribute('disabled') && (el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0);
+            });
+        }
+
+        function handleTabTrap(e) {
+            const topModal = openModals[openModals.length - 1];
+            if (!topModal) return;
+
+            const focusables = getFocusableElements(topModal);
+            if (focusables.length === 0) {
+                e.preventDefault();
+                return;
+            }
+
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+
+            if (e.shiftKey) {
+                if (document.activeElement === first || !topModal.contains(document.activeElement)) {
+                    e.preventDefault();
+                    last.focus();
+                }
+            } else {
+                if (document.activeElement === last || !topModal.contains(document.activeElement)) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        }
+
         function init() {
             if (isInitialized || typeof window === 'undefined') return;
             isInitialized = true;
 
-            // Global Escape key support
+            // Global Escape key & Focus Trap support
             window.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && openModals.length > 0) {
                     e.preventDefault();
                     closeTop();
+                } else if (e.key === 'Tab' && openModals.length > 0) {
+                    handleTabTrap(e);
                 }
             });
 
@@ -386,6 +630,9 @@
             init();
             setupBackdropListeners(modal);
 
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+
             const idx = openModals.indexOf(modal);
             if (idx === -1) {
                 openModals.push(modal);
@@ -399,6 +646,11 @@
 
             requestAnimationFrame(() => {
                 modal.classList.add('is-open');
+                const focusables = getFocusableElements(modal);
+                if (focusables.length > 0 && !modal.contains(document.activeElement)) {
+                    const autofocusEl = focusables.find(el => el.hasAttribute('autofocus'));
+                    (autofocusEl || focusables[0]).focus();
+                }
             });
 
             if (onOpen) onOpen();
@@ -707,7 +959,10 @@
     global.escapeHtml = escapeHtml;
     global.shuffle = shuffle;
     global.retrySequence = retrySequence;
+    global.isTestableKana = isTestableKana;
+    global.afterNextPaint = afterNextPaint;
     global.KanaMatcher = KanaMatcher;
+    global.TypingChecker = TypingChecker;
     global.CpmTracker = CpmTracker;
     global.DEFAULT_POOL = DEFAULT_POOL;
     global.DEFAULT_SENTENCE_POOL = DEFAULT_POOL; // Alias for backward compatibility
@@ -728,10 +983,13 @@
             escapeHtml,
             shuffle,
             retrySequence,
+            isTestableKana,
+            afterNextPaint,
             stripEmojis,
             EMOJI_REGEX,
             setAppHeight,
             KanaMatcher,
+            TypingChecker,
             CpmTracker,
             DEFAULT_POOL,
             DEFAULT_SENTENCE_POOL: DEFAULT_POOL,

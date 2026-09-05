@@ -578,7 +578,7 @@
 
 
     const PracticeEngine = (() => {
-        let activePool = JSON.parse(SafeStorage.get('kana_practice_custom_pool', JSON.stringify(DEFAULT_POOL)));
+        let activePool = SafeStorage.loadPool('kana_practice_custom_pool', DEFAULT_POOL);
         let currentArticle = '';
         let currentArticleChars = [];
         let leftBubbleEl = null;
@@ -586,9 +586,8 @@
         let userChatRowEl = null;
         let charSpans = [];
         
+        let typingChecker = new TypingChecker('', { mode: 'line' });
         let cumulativeMistakes = 0;
-        let lastStatusArray = [];
-        let lastInputLength = 0;
         let isCompleting = false;
         let imeCompletionFallbackTimer = null;
         let isComposing = false;
@@ -650,10 +649,6 @@
             window.visualViewport.addEventListener('scroll', syncViewport);
         } else {
             syncViewport();
-        }
-
-        function isTestableKana(ch) {
-            return /[\u3040-\u309F\u30A0-\u30FFー\-－ｰ、。？！…〜（）]/.test(ch);
         }
 
         function init(customText = null) {
@@ -729,9 +724,8 @@
             currentArticle = text;
             currentArticleChars = Array.from(currentArticle);
 
+            typingChecker.reset(text, { mode: 'line' });
             cumulativeMistakes = 0;
-            lastStatusArray = [];
-            lastInputLength = 0;
             lastScrolledLength = -1;
             lastRenderedLength = 0;
             isCompleting = false;
@@ -820,6 +814,9 @@
                 }
             }
 
+            const checkResult = typingChecker.check(inputChars, { isComposing });
+            cumulativeMistakes = checkResult.cumulativeMistakes;
+
             CpmTracker.onKeystroke(inputChars.length);
             progressEl.textContent = `${Math.min(inputChars.length, currentArticleChars.length)} / ${currentArticleChars.length}`;
             rightBubbleEl.textContent = currentInput || '...';
@@ -832,59 +829,18 @@
                 if (i >= inputChars.length) {
                     if (span.style.fontWeight !== '400') span.style.fontWeight = '400';
                     if (span.style.fontStyle !== 'normal') span.style.fontStyle = 'normal';
-                    if (!isComposing) {
-                        lastStatusArray[i] = undefined;
-                    }
                     continue;
                 }
 
-                const targetChar = currentArticleChars[i];
-                const inputChar = inputChars[i];
-                const isTestable = isTestableKana(targetChar); 
-
-                let status;
-                if (!isTestable) {
-                    status = 'correct';
-                } else {
-                    status = KanaMatcher.classify(
-                        targetChar, inputChar,
-                        currentArticleChars[i - 1], inputChars[i - 1]
-                    );
-                    if (status === 'pending' && i !== inputChars.length - 1) {
-                        status = 'error';
-                    }
-                }
-                
+                const status = checkResult.statuses[i];
                 const targetWeight = (status === 'correct' || status === 'correct-kata') ? '900' : '400';
                 const targetStyle = (status === 'error') ? 'italic' : 'normal';
 
                 if (span.style.fontWeight !== targetWeight) span.style.fontWeight = targetWeight;
                 if (span.style.fontStyle !== targetStyle) span.style.fontStyle = targetStyle;
-                
-                if (status === 'error') {
-                    if (isTestable) {
-                        if (!isComposing && lastStatusArray[i] !== 'error') {
-                            cumulativeMistakes++;
-                        }
-                    }
-                }
-                
-                if (!isComposing) {
-                    lastStatusArray[i] = status;
-                }
             }
 
             lastRenderedLength = inputChars.length;
-
-            if (inputChars.length > currentArticleChars.length) {
-                if (!isComposing && inputChars.length > lastInputLength) {
-                    cumulativeMistakes += (inputChars.length - Math.max(currentArticleChars.length, lastInputLength));
-                }
-            }
-
-            if (!isComposing) {
-                lastInputLength = inputChars.length;
-            }
 
             if (inputChars.length !== lastScrolledLength) {
                 lastScrolledLength = inputChars.length;
@@ -894,13 +850,7 @@
                 }
             }
 
-            let isComplete = false;
-            
-            if (inputChars.length >= currentArticleChars.length) {
-                isComplete = true;
-            }
-
-            if (isComplete && isComposing) {
+            if (checkResult.isComplete && isComposing) {
                 if (!imeCompletionFallbackTimer) {
                     imeCompletionFallbackTimer = setTimeout(() => {
                         imeCompletionFallbackTimer = null;
@@ -914,8 +864,8 @@
 
             if (imeCompletionFallbackTimer) { clearTimeout(imeCompletionFallbackTimer); imeCompletionFallbackTimer = null; }
 
-            if (isComplete) {
-                const totalTestableCount = currentArticleChars.filter(isTestableKana).length;
+            if (checkResult.isComplete) {
+                const totalTestableCount = checkResult.totalTestableCount;
                 const hasMoreTurns = turnQueue.length > 0 && turnIndex < turnQueue.length - 1;
 
                 if (hasMoreTurns) {

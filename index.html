@@ -608,6 +608,18 @@
             if (textLayerEl) textLayerEl.scrollTop = 0;
         }
 
+        const SCROLL_CONSTANTS = {
+            // Buffer below header to ensure the active character isn't flush against the header bottom
+            HEADER_SAFETY_MARGIN_PX: 8,
+            // Fallback line heights if getBoundingClientRect returns 0
+            MIN_LINE_HEIGHT_CLASSIC_PX: 45,
+            MIN_LINE_HEIGHT_DOCUMENT_PX: 55,
+            // Advance scroll trigger: when remaining space to bottom boundary is less than 0.8 line height
+            PENULTIMATE_ROW_TRIGGER_RATIO: 0.8,
+            // Number of lines to scroll up and retain as bottom preview
+            SCROLL_BUFFER_LINES: 2
+        };
+
         function scrollToActive(span) {
             if (!span || !textLayerEl) return;
 
@@ -633,11 +645,13 @@
             }
 
             const spanRect = span.getBoundingClientRect();
-            const lineHeight = Math.max(spanRect.height || 0, isClassic ? 45 : 55);
+            const fallbackLineHeight = isClassic ? SCROLL_CONSTANTS.MIN_LINE_HEIGHT_CLASSIC_PX : SCROLL_CONSTANTS.MIN_LINE_HEIGHT_DOCUMENT_PX;
+            const lineHeight = Math.max(spanRect.height || 0, fallbackLineHeight);
 
             // 頂部防護：Backspace 刪字回到上方被 header 遮擋時往下回捲
-            if (spanRect.top < headerBottom + 8) {
-                const scrollDownAmount = (headerBottom + 8) - spanRect.top;
+            const topSafetyBoundary = headerBottom + SCROLL_CONSTANTS.HEADER_SAFETY_MARGIN_PX;
+            if (spanRect.top < topSafetyBoundary) {
+                const scrollDownAmount = topSafetyBoundary - spanRect.top;
                 textLayerEl.scrollTo({
                     top: Math.max(0, textLayerEl.scrollTop - scrollDownAmount),
                     behavior: 'smooth'
@@ -646,10 +660,10 @@
             }
 
             // 倒數最2列打完判定：
-            // 當倒數最2列最後一字打完，焦點字進入倒數第1列（底部小於等於 0.8 列空間即進入最後一列）
-            // 自動平滑往上捲動 2 列（2 * lineHeight），並確保下方保留 2 列預覽視野
-            const twoLinesBuffer = 2 * lineHeight;
-            const triggerThreshold = boundaryBottom - (0.8 * lineHeight);
+            // 當焦點字進入倒數第1列（底部小於等於 0.8 列空間即進入最後一列）
+            // 自動平滑往上捲動 2 列（SCROLL_BUFFER_LINES * lineHeight），並確保下方保留 2 列預覽視野
+            const twoLinesBuffer = SCROLL_CONSTANTS.SCROLL_BUFFER_LINES * lineHeight;
+            const triggerThreshold = boundaryBottom - (SCROLL_CONSTANTS.PENULTIMATE_ROW_TRIGGER_RATIO * lineHeight);
 
             if (spanRect.bottom > triggerThreshold) {
                 const baseScrollUp = twoLinesBuffer;
@@ -761,14 +775,7 @@
         const POOL_STORAGE_KEY = 'kana_practice_custom_pool';
 
         function loadPool() {
-            try {
-                const saved = SafeStorage.get(POOL_STORAGE_KEY);
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-                }
-            } catch (err) {}
-            return DEFAULT_SENTENCE_POOL.slice();
+            return SafeStorage.loadPool(POOL_STORAGE_KEY, DEFAULT_SENTENCE_POOL);
         }
 
         let activePool = loadPool();
@@ -777,9 +784,8 @@
         let isCustomFile = false;
         let allKeysClickCount = 0;
         let cachedSpans = [];
+        let typingChecker = new TypingChecker('', { mode: 'document' });
         let cumulativeMistakes = 0;
-        let lastStatusArray = [];
-        let lastInputLength = 0;
         let isCompleting = false;
         let activeSpanIndex = 0;
         let lastRenderedLength = 0;
@@ -793,19 +799,6 @@
             isComposing = false; 
             checkInput();
         });
-
-        function isTestableKana(ch) {
-            return /[\u3040-\u309F\u30A0-\u30FFー\-－ｰ、。？！…〜（）]/.test(ch);
-        }
-
-        function shuffle(arr) {
-            const a = arr.slice();
-            for (let i = a.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [a[i], a[j]] = [a[j], a[i]];
-            }
-            return a;
-        }
 
         function setPool(newPool) { activePool = newPool; SafeStorage.set(POOL_STORAGE_KEY, JSON.stringify(newPool)); }
         function getPool() { return activePool; }
@@ -832,9 +825,9 @@
             }
 
             CpmTracker.reset();
+            const isClassic = LayoutManager.getActiveLayout() === 'classic';
+            typingChecker.reset(currentArticle, { mode: isClassic ? 'classic' : 'document' });
             cumulativeMistakes = 0;
-            lastStatusArray = [];
-            lastInputLength = 0;
             lastRenderedLength = 0;
             activeSpanIndex = 0;
             isCompleting = false;
@@ -893,11 +886,12 @@
             const inputChars = Array.from(currentInput);           
             const spans = cachedSpans;
             const isClassicMode = LayoutManager.getActiveLayout() === 'classic';
-            
-            let hasError = false;
-            let allCorrect = true;
-            let hasPendingAtEnd = false;
-            const currentPassErrorIndices = [];
+
+            const checkResult = typingChecker.check(inputChars, { 
+                isComposing, 
+                mode: isClassicMode ? 'classic' : 'document' 
+            });
+            cumulativeMistakes = checkResult.cumulativeMistakes;
 
             CpmTracker.onKeystroke(inputChars.length);
             progressEl.textContent = `${Math.min(inputChars.length, currentArticleChars.length)} / ${currentArticleChars.length}`;
@@ -915,74 +909,20 @@
                 if (i >= inputChars.length) {
                     if (wrapper.className !== 'char-wrapper') wrapper.className = 'char-wrapper';
                     if (inputSpan.textContent !== '') inputSpan.textContent = '';
-                    if (!isComposing) {
-                        lastStatusArray[i] = undefined;
-                    }
                     continue;
                 }
 
-                const targetChar = currentArticleChars[i];
                 const inputChar = inputChars[i];
-                const isTestable = isTestableKana(targetChar); 
-
                 if (inputSpan.textContent !== inputChar) inputSpan.textContent = inputChar;
 
-                let status;
-                
-                if (!isTestable) {
-                    status = 'correct';
-                } else {
-                    status = KanaMatcher.classify(
-                        targetChar, inputChar,
-                        currentArticleChars[i - 1], inputChars[i - 1]
-                    );
-
-                    if (status === 'pending') {
-                        if (i === inputChars.length - 1) {
-                            hasPendingAtEnd = true;
-                        } else {
-                            status = 'error';
-                        }
-                    }
-                }
-
+                const status = checkResult.statuses[i];
                 const newClassName = 'char-wrapper has-input ' + status;
                 if (wrapper.className !== newClassName) wrapper.className = newClassName;
-                
-                if (status === 'error') {
-                    if (isTestable) {
-                        if (!isComposing && lastStatusArray[i] !== 'error') {
-                            cumulativeMistakes++;
-                        }
-                        currentPassErrorIndices.push(i);
-                    }
-                    hasError = true;       
-                }
-                
-                if (status !== 'correct' && status !== 'correct-kata') {
-                    allCorrect = false;
-                }
-
-                if (!isComposing) {
-                    lastStatusArray[i] = status;
-                }
             }
 
             lastRenderedLength = inputChars.length;
 
-            if (inputChars.length > currentArticleChars.length) {
-                hasError = true;
-
-                if (!isComposing && inputChars.length > lastInputLength) {
-                    cumulativeMistakes += (inputChars.length - Math.max(currentArticleChars.length, lastInputLength));
-                }
-            }
-
-            if (!isComposing) {
-                lastInputLength = inputChars.length;
-            }
-
-            inputEl.classList.toggle('error-border', isClassicMode && hasError);
+            inputEl.classList.toggle('error-border', isClassicMode && checkResult.hasError);
 
             const activeIndex = Math.min(inputChars.length, currentArticleChars.length - 1);
             if (activeIndex !== activeSpanIndex) {
@@ -997,21 +937,7 @@
 
             ViewportManager.scrollToActive(spans[activeIndex]);
 
-            let isComplete = false;
-            
-            if (currentInput === currentArticle) {
-                isComplete = true;
-            } else if (isClassicMode) {
-                isComplete = allCorrect && inputChars.length === currentArticleChars.length;
-            } else {
-                if (inputChars.length > currentArticleChars.length) {
-                    isComplete = true; 
-                } else if (inputChars.length === currentArticleChars.length) {
-                    isComplete = !hasPendingAtEnd;
-                }
-            }
-
-            if (isComplete && isComposing) {
+            if (checkResult.isComplete && isComposing) {
                 if (!imeCompletionFallbackTimer) {
                     imeCompletionFallbackTimer = setTimeout(() => {
                         imeCompletionFallbackTimer = null;
@@ -1025,19 +951,16 @@
 
             if (imeCompletionFallbackTimer) { clearTimeout(imeCompletionFallbackTimer); imeCompletionFallbackTimer = null; }
 
-            if (isComplete) {
+            if (checkResult.isComplete) {
                 isCompleting = true;
-                const totalTestableCount = currentArticleChars.filter(isTestableKana).length;
-                handleCompletion(cumulativeMistakes, totalTestableCount);
+                handleCompletion(cumulativeMistakes, checkResult.totalTestableCount);
             }
         }
 
         function handleCompletion(errorCount, totalCount) {
             const captureModeIsClassic = LayoutManager.getActiveLayout() === 'classic';
 
-            requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-            setTimeout(() => {
+            afterNextPaint(() => {
                 inputEl.readOnly = true;
                 inputEl.blur(); 
 
@@ -1079,8 +1002,6 @@
                     retrySequence(forceScroll, [0, 50, 150, 300]);
                 }
             }, 150);
-            });
-            });
         }
 
         function restoreFocusAndCaret() {

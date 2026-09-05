@@ -7,7 +7,11 @@ test('E2E: Cross-page theme sync, shared paste text, and dynamic return button',
     const client = await launchHeadlessChrome(server.url, '/index.html');
 
     try {
-        await new Promise(r => setTimeout(r, 400));
+        for (let i = 0; i < 30; i++) {
+            const isReady = await client.evaluate(`document.readyState === 'complete' && typeof ThemeManager !== 'undefined'`);
+            if (isReady) break;
+            await new Promise(r => setTimeout(r, 100));
+        }
         // 1. In index.html, toggle to dark mode and set paste text
         await client.evaluate(`(() => {
             // Set dark mode

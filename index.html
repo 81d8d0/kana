@@ -312,6 +312,12 @@
         #custom-confirm-modal .btn { background-color: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.5); flex: 1; }
         #custom-confirm-modal .btn.error { background-color: var(--error-color); border: none; }
 
+        ::view-transition-old(root),
+        ::view-transition-new(root) {
+            animation-duration: 0.25s;
+            animation-timing-function: ease-in-out;
+        }
+
         @media screen and (min-aspect-ratio: 9/16), screen and (max-height: 750px) {
             :root { --controls-gradient: linear-gradient(to top, #F2F6F7 85%, transparent); }
             body.dark-mode { --controls-gradient: linear-gradient(to top, #1E1E1E 85%, transparent); }
@@ -623,9 +629,20 @@
         function toggle() {
             const isClassic = document.body.classList.contains('layout-classic');
             const newLayout = isClassic ? 'document' : 'classic';
-            apply(newLayout);
-            SafeStorage.set(STORAGE_KEY, newLayout);
-            PracticeEngine.init(PracticeEngine.getCurrentArticle());
+            
+            const performSwitch = () => {
+                apply(newLayout);
+                SafeStorage.set(STORAGE_KEY, newLayout);
+                PracticeEngine.onLayoutChange();
+            };
+
+            if (document.startViewTransition) {
+                document.startViewTransition(() => {
+                    performSwitch();
+                });
+            } else {
+                performSwitch();
+            }
         }
 
         return { init, getActiveLayout: () => document.body.classList.contains('layout-classic') ? 'classic' : 'document' };
@@ -1018,9 +1035,7 @@
                 lastInputLength = inputChars.length;
             }
 
-            if (isClassicMode) {
-                inputEl.classList.toggle('error-border', hasError);
-            }
+            inputEl.classList.toggle('error-border', isClassicMode && hasError);
 
             let activeIndex = Math.min(inputChars.length, currentArticleChars.length - 1);
             if (inputChars.length < currentArticleChars.length) {
@@ -1203,7 +1218,29 @@
             window.visualViewport.addEventListener('scroll', forceShowArticleStart);
         }
 
-        return { init, setPool, getPool, resetPoolToDefault, getCurrentArticle, isCustom, restoreFocusAndCaret, generateAllKeysText };
+        function onLayoutChange() {
+            const isClassic = LayoutManager.getActiveLayout() === 'classic';
+            if (inputEl.readOnly) {
+                inputEl.classList.toggle('disabled-input', isClassic);
+                return;
+            }
+            lastScrolledIndex = -1;
+            checkInput();
+            if (inputEl.value.length === 0) {
+                window.scrollTo(0, 0); document.body.scrollTop = 0;
+                document.documentElement.scrollTop = 0; textLayerEl.scrollTop = 0;
+            }
+            if (!ModalManager.isAnyOpen()) {
+                inputEl.focus();
+                const len = inputEl.value.length;
+                inputEl.setSelectionRange(len, len);
+                if (isClassic) {
+                    inputEl.scrollLeft = inputEl.scrollWidth;
+                }
+            }
+        }
+
+        return { init, setPool, getPool, resetPoolToDefault, getCurrentArticle, isCustom, restoreFocusAndCaret, generateAllKeysText, onLayoutChange };
     })();
 
     const HistoryPanel = (() => {

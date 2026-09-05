@@ -18,6 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="prefetch" href="line.html">
 
     <title>かな入力練習</title>
     <style>
@@ -312,6 +313,10 @@
         #custom-confirm-modal .btn { background-color: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.5); flex: 1; }
         #custom-confirm-modal .btn.error { background-color: var(--error-color); border: none; }
 
+        @view-transition {
+            navigation: auto;
+        }
+
         ::view-transition-old(root),
         ::view-transition-new(root) {
             animation-duration: 0.25s;
@@ -592,12 +597,15 @@
         const STORAGE_KEY = 'kana_practice_theme';
         const toggleBtn = document.getElementById('theme-toggle-btn');
         function init() {
-            if (SafeStorage.get(STORAGE_KEY) === 'dark') document.body.classList.add('dark-mode');
+            const saved = SafeStorage.get(STORAGE_KEY) || SafeStorage.get('kana_line_theme');
+            if (saved === 'dark') document.body.classList.add('dark-mode');
             toggleBtn.addEventListener('click', toggle);
         }
         function toggle() {
             document.body.classList.toggle('dark-mode');
-            SafeStorage.set(STORAGE_KEY, document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+            const theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+            SafeStorage.set(STORAGE_KEY, theme);
+            SafeStorage.set('kana_line_theme', theme);
         }
         return { init };
     })();

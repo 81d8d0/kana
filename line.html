@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="prefetch" href="./">
 
     <title>かな入力練習 - LINE Mode</title>
     <style>
@@ -353,6 +354,16 @@
             border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 1000; 
             font-weight: 700; text-align: center; box-sizing: border-box; line-height: 1.5; font-size: 1.1rem; 
         }
+
+        @view-transition {
+            navigation: auto;
+        }
+
+        ::view-transition-old(root),
+        ::view-transition-new(root) {
+            animation-duration: 0.25s;
+            animation-timing-function: ease-in-out;
+        }
     </style>
 </head>
 <body>
@@ -361,7 +372,7 @@
     <div id="header">
         <div class="header-left">
             <span id="progress">0 / 0</span>
-            <button id="menu-classic" class="icon-btn" aria-label="通常版に戻る" style="font-size: 1.1rem;">📃📄</button>
+            <button id="menu-classic" class="icon-btn" aria-label="通常版に戻る" style="font-size: 1.1rem;">📃</button>
         </div>
         <div class="header-right">
             <span id="cpm-display" style="display: none;"> 文字数/分</span>
@@ -560,15 +571,19 @@
     }
 
     const ThemeManager = (() => {
+        const STORAGE_KEY = 'kana_practice_theme';
         const toggleBtn = document.getElementById('theme-toggle-btn');
         function init() {
-            if (SafeStorage.get('kana_line_theme') === 'dark') {
+            const saved = SafeStorage.get(STORAGE_KEY) || SafeStorage.get('kana_line_theme');
+            if (saved === 'dark') {
                 document.body.classList.add('dark-mode');
             }
             toggleBtn.addEventListener('click', () => {
                 document.body.classList.toggle('dark-mode');
                 const isDark = document.body.classList.contains('dark-mode');
-                SafeStorage.set('kana_line_theme', isDark ? 'dark' : 'light');
+                const theme = isDark ? 'dark' : 'light';
+                SafeStorage.set(STORAGE_KEY, theme);
+                SafeStorage.set('kana_line_theme', theme);
             });
         }
         return { init };
@@ -1228,14 +1243,23 @@
         });
 
         const pasteModal = document.getElementById('paste-modal');
-        document.getElementById('menu-paste').onclick = () => { closeMenu(); ModalManager.open(pasteModal); };
+        const pasteTextarea = document.getElementById('paste-textarea');
+        const PASTE_STORAGE_KEY = 'kana_practice_last_paste';
+
+        document.getElementById('menu-paste').onclick = () => { 
+            closeMenu();
+            pasteTextarea.value = SafeStorage.get(PASTE_STORAGE_KEY, '');
+            ModalManager.open(pasteModal); 
+        };
         document.getElementById('cancel-paste-btn').onclick = () => ModalManager.close(pasteModal);
         document.getElementById('clear-paste-btn').onclick = () => {
-            document.getElementById('paste-textarea').value = '';
+            pasteTextarea.value = '';
+            SafeStorage.remove(PASTE_STORAGE_KEY);
             UiFeedback.alert('クリアしました。');
         };
         document.getElementById('save-paste-btn').onclick = () => {
-            const val = document.getElementById('paste-textarea').value
+            const raw = pasteTextarea.value;
+            const val = raw
                 .replace(/[\s\r\n]+/g, '')
                 .replace(/[\p{Extended_Pictographic}\u200D\uFE0F\u{1F3FB}-\u{1F3FF}]/gu, '');
             if (val.length === 0) {
@@ -1246,6 +1270,7 @@
                 UiFeedback.alert('1,500文字以内の文章を入力してください。');
                 return;
             }
+            SafeStorage.set(PASTE_STORAGE_KEY, raw);
             PracticeEngine.initMultiTurn(val);
             ModalManager.close(pasteModal);
         };
@@ -1274,7 +1299,16 @@
             PracticeEngine.init();
         };
 
-        document.getElementById('menu-classic').onclick = () => { 
+        const menuClassicBtn = document.getElementById('menu-classic');
+        const layoutPref = SafeStorage.get('kana_practice_layout', 'document');
+        if (layoutPref === 'document') {
+            menuClassicBtn.textContent = '📃';
+            menuClassicBtn.setAttribute('aria-label', '通常版（文書モード）に戻る');
+        } else {
+            menuClassicBtn.textContent = '📄';
+            menuClassicBtn.setAttribute('aria-label', '通常版（クラシックモード）に戻る');
+        }
+        menuClassicBtn.onclick = () => { 
             window.location.href = './'; 
         };
 

@@ -454,19 +454,19 @@
         <div id="header">
             <div class="header-left">
                 <div id="progress">0 / 0</div>
-                <button id="layout-toggle-btn" class="header-btn-style" aria-label="レイアウトを切り替える">📄</button>
-                <button id="line-mode-btn" class="header-btn-style" aria-label="LINE風モードへ切り替える">💬</button>
+                <button id="layout-toggle-btn" class="header-btn-style">📄</button>
+                <button id="line-mode-btn" class="header-btn-style">💬</button>
             </div>
             <div class="header-right">
                 <div id="cpm-display" style="display: none;"> 文字数/分</div>
-                <button id="theme-toggle-btn" class="header-btn-style" aria-label="テーマを切り替える">
+                <button id="theme-toggle-btn" class="header-btn-style">
                     <img src="mode.svg" alt="Dark Mode">
                 </button>
             </div>
         </div>
         
         <div id="input-area">
-            <input type="text" id="kana-input" aria-label="かな入力練習" lang="ja" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="今から練習します">
+            <input type="text" id="kana-input" lang="ja" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="今から練習します">
         </div>
         
         <button id="history-btn">📊</button>
@@ -665,7 +665,7 @@
 
         function loadPool() {
             try {
-                const saved = localStorage.getItem(POOL_STORAGE_KEY);
+                const saved = SafeStorage.get(POOL_STORAGE_KEY);
                 if (saved) {
                     const parsed = JSON.parse(saved);
                     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -710,9 +710,9 @@
             return a;
         }
 
-        function setPool(newPool) { activePool = newPool; localStorage.setItem(POOL_STORAGE_KEY, JSON.stringify(newPool)); }
+        function setPool(newPool) { activePool = newPool; SafeStorage.set(POOL_STORAGE_KEY, JSON.stringify(newPool)); }
         function getPool() { return activePool; }
-        function resetPoolToDefault() { activePool = DEFAULT_SENTENCE_POOL.slice(); localStorage.removeItem(POOL_STORAGE_KEY); return activePool; }
+        function resetPoolToDefault() { activePool = DEFAULT_SENTENCE_POOL.slice(); SafeStorage.remove(POOL_STORAGE_KEY); return activePool; }
         function getCurrentArticle() { return currentArticle; }
         function isCustom() { return isCustomFile; }
 
@@ -1194,7 +1194,7 @@
             });
 
             saveEditBtn.addEventListener('click', () => {
-                const rawText = editTextarea.value.replace(/[\p{Extended_Pictographic}\u200D\uFE0F\u{1F3FB}-\u{1F3FF}]/gu, '');
+                const rawText = stripEmojis(editTextarea.value);
                 const newWords = rawText.split(/\r?\n/).map(w => w.trim()).filter(w => w.length > 0);
                 if (newWords.length === 0) { UiFeedback.alert('フレーズ集は空にできません。'); return; }
                 if (newWords.some(w => Array.from(w).length > 1500)) {
@@ -1236,9 +1236,7 @@
 
             savePasteBtn.addEventListener('click', () => {
                 SafeStorage.set(STORAGE_KEY, pasteTextarea.value);
-                const continuousText = pasteTextarea.value
-                    .replace(/[\s\r\n]+/g, '')
-                    .replace(/[\p{Extended_Pictographic}\u200D\uFE0F\u{1F3FB}-\u{1F3FF}]/gu, '');
+                const continuousText = stripEmojis(pasteTextarea.value.replace(/[\s\r\n]+/g, ''));
                 if (continuousText.length === 0) { UiFeedback.alert('テキストが入力されていません。'); return; }
                 if (Array.from(continuousText).length > 1500) {
                     UiFeedback.alert('1,500文字以内の文章を入力してください。', pasteTextarea);

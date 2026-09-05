@@ -7,6 +7,7 @@ test('E2E: Cross-page theme sync, shared paste text, and dynamic return button',
     const client = await launchHeadlessChrome(server.url, '/index.html');
 
     try {
+        await new Promise(r => setTimeout(r, 400));
         // 1. In index.html, toggle to dark mode and set paste text
         await client.evaluate(`(() => {
             // Set dark mode
@@ -30,7 +31,6 @@ test('E2E: Cross-page theme sync, shared paste text, and dynamic return button',
         const lineState = await client.evaluate(`({
             isDark: document.body.classList.contains('dark-mode'),
             classicBtnText: document.getElementById('menu-classic').textContent.trim(),
-            classicBtnLabel: document.getElementById('menu-classic').getAttribute('aria-label'),
             hasPrefetch: !!document.querySelector('link[rel="prefetch"][href="./"]'),
             themeKey: localStorage.getItem('kana_practice_theme')
         })`);

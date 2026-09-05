@@ -47,9 +47,21 @@ test('KanaMatcher: Voiced and semi-voiced kana pending states', () => {
     assert.equal(KanaMatcher.classify('ぱ', 'ば'), 'pending');
     // ゔ <- う
     assert.equal(KanaMatcher.classify('ゔ', 'う'), 'pending');
+    // だ <- た, で <- て
+    assert.equal(KanaMatcher.classify('だ', 'た'), 'pending');
+    assert.equal(KanaMatcher.classify('で', 'て'), 'pending');
     // Katakana variants
     assert.equal(KanaMatcher.classify('ガ', 'カ'), 'pending');
+    assert.equal(KanaMatcher.classify('デ', 'テ'), 'pending');
     assert.equal(KanaMatcher.classify('ポ', 'ホ'), 'pending');
+});
+
+test('stripEmojis: filters standard emojis, flag sequences, and composite emojis', () => {
+    const { stripEmojis } = globalThis;
+    assert.equal(stripEmojis('日本🇯🇵東京'), '日本東京');
+    assert.equal(stripEmojis('アメリカ🇺🇸NY'), 'アメリカNY');
+    assert.equal(stripEmojis('イギリス🏴󠁧󠁢󠁥󠁮󠁧󠁿ロンドン'), 'イギリスロンドン');
+    assert.equal(stripEmojis('家族👨‍👩‍👧‍👦旅行✨'), '家族旅行');
 });
 
 test('KanaMatcher: Small kana (拗音・促音) pending states', () => {

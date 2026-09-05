@@ -67,6 +67,11 @@
         delays.forEach(d => setTimeout(fn, d));
     }
 
+    const EMOJI_REGEX = /[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{E0020}-\u{E007F}\u200D\uFE0F\u{1F3FB}-\u{1F3FF}]/gu;
+    function stripEmojis(str) {
+        return String(str || '').replace(EMOJI_REGEX, '');
+    }
+
     // 3. KanaMatcher: Japanese flick input classification engine
     const KanaMatcher = (() => {
         const isKatakana = (ch) => /[\u30A0-\u30FF]/.test(ch);
@@ -78,7 +83,7 @@
             'ぁ':'あ', 'ぃ':'い', 'ぅ':'う', 'ぇ':'え', 'ぉ':'お',
             'が':'か', 'ぎ':'き', 'ぐ':'く', 'げ':'け', 'ご':'こ',
             'ざ':'さ', 'じ':'し', 'ず':'す', 'ぜ':'せ', 'ぞ':'そ',
-            'だ':'た', 'ぢ':'ち', 'づ':'つ', 'デ':'て', 'ど':'と',
+            'だ':'た', 'ぢ':'ち', 'づ':'つ', 'で':'て', 'ど':'と',
             'ば':'は', 'ぱ':'はば',
             'び':'ひ', 'ぴ':'ひび',
             'ぶ':'ふ', 'ぷ':'ふぶ',
@@ -542,6 +547,8 @@
     global.HistoryStore = HistoryStore;
     global.ModalManager = ModalManager;
     global.UiFeedback = UiFeedback;
+    global.stripEmojis = stripEmojis;
+    global.EMOJI_REGEX = EMOJI_REGEX;
 
     // Export to CommonJS / Node.js if present
     if (typeof module !== 'undefined' && module.exports) {
@@ -550,6 +557,8 @@
             escapeHtml,
             shuffle,
             retrySequence,
+            stripEmojis,
+            EMOJI_REGEX,
             KanaMatcher,
             CpmTracker,
             DEFAULT_POOL,

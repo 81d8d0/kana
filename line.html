@@ -421,14 +421,14 @@
     <div id="header">
         <div class="header-left">
             <span id="progress">0 / 0</span>
-            <button id="menu-classic" class="icon-btn" aria-label="通常版に戻る" style="font-size: 1.1rem;">📃</button>
+            <button id="menu-classic" class="icon-btn" style="font-size: 1.1rem;">📃</button>
         </div>
         <div class="header-right">
             <span id="cpm-display" style="display: none;"> 文字数/分</span>
-            <button id="theme-toggle-btn" class="icon-btn" aria-label="ダークモード切り替え">
+            <button id="theme-toggle-btn" class="icon-btn">
                 <img src="mode.svg" alt="Mode">
             </button>
-            <button id="hamburger-btn" class="icon-btn" aria-label="メニュー">☰</button>
+            <button id="hamburger-btn" class="icon-btn">☰</button>
         </div>
     </div>
 
@@ -1153,9 +1153,7 @@
         };
         document.getElementById('save-paste-btn').onclick = () => {
             const raw = pasteTextarea.value;
-            const val = raw
-                .replace(/[\s\r\n]+/g, '')
-                .replace(/[\p{Extended_Pictographic}\u200D\uFE0F\u{1F3FB}-\u{1F3FF}]/gu, '');
+            const val = stripEmojis(raw.replace(/[\s\r\n]+/g, ''));
             if (val.length === 0) {
                 UiFeedback.alert('テキストが入力されていません。');
                 return;
@@ -1183,7 +1181,7 @@
             UiFeedback.alert('リセットしました。');
         };
         document.getElementById('save-edit-btn').onclick = () => {
-            const rawText = document.getElementById('edit-textarea').value.replace(/[\p{Extended_Pictographic}\u200D\uFE0F\u{1F3FB}-\u{1F3FF}]/gu, '');
+            const rawText = stripEmojis(document.getElementById('edit-textarea').value);
             const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
             if (lines.length === 0) {
                 UiFeedback.alert('フレーズ集は空にできません。');
@@ -1198,10 +1196,8 @@
         const layoutPref = SafeStorage.get('kana_practice_layout', 'document');
         if (layoutPref === 'document') {
             menuClassicBtn.textContent = '📃';
-            menuClassicBtn.setAttribute('aria-label', '通常版（文書モード）に戻る');
         } else {
             menuClassicBtn.textContent = '📄';
-            menuClassicBtn.setAttribute('aria-label', '通常版（クラシックモード）に戻る');
         }
         menuClassicBtn.onclick = () => { 
             window.location.href = './'; 

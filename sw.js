@@ -1,4 +1,4 @@
-const CACHE_VERSION = '26.9.05';
+const CACHE_VERSION = '26.9.05.1';
 const CACHE_NAME = `kana-${CACHE_VERSION}`;
 const FONT_CACHE_NAME = `kana-fonts-${CACHE_VERSION}`;
 const CORE_ASSETS = [
@@ -17,8 +17,13 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            console.log(`[SW] Caching core resources (${CACHE_VERSION})`);
-            return cache.addAll(CORE_ASSETS);
+            return Promise.allSettled(
+                CORE_ASSETS.map((asset) =>
+                    cache.add(asset).catch((err) => {
+                        console.warn(`[SW] Failed to cache asset: ${asset}`, err);
+                    })
+                )
+            );
         })
     );
 });
@@ -80,17 +85,17 @@ self.addEventListener('fetch', (event) => {
             if (cachedResponse) {
                 return cachedResponse;
             }
-            
+
             return fetch(event.request).then((response) => {
                 if (!response || response.status !== 200 || response.type !== 'basic') {
                     return response;
                 }
-                
+
                 const responseClone = response.clone();
                 caches.open(CACHE_NAME).then((cache) => {
                     cache.put(event.request, responseClone);
                 });
-                
+
                 return response;
             });
         })

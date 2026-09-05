@@ -615,6 +615,7 @@
         let imeCompletionFallbackTimer = null;
         let isComposing = false;
         let lastScrolledLength = -1;
+        let lastRenderedLength = 0;
 
         let turnQueue = [];
         let turnIndex = 0;
@@ -754,6 +755,7 @@
             lastStatusArray = [];
             lastInputLength = 0;
             lastScrolledLength = -1;
+            lastRenderedLength = 0;
             isCompleting = false;
             isComposing = false;
             if (imeCompletionFallbackTimer) { clearTimeout(imeCompletionFallbackTimer); imeCompletionFallbackTimer = null; }
@@ -844,12 +846,14 @@
             progressEl.textContent = `${Math.min(inputChars.length, currentArticleChars.length)} / ${currentArticleChars.length}`;
             rightBubbleEl.textContent = currentInput || '...';
 
-            for (let i = 0; i < currentArticleChars.length; i++) {
+            const maxLoop = Math.min(currentArticleChars.length, Math.max(inputChars.length, lastRenderedLength));
+
+            for (let i = 0; i < maxLoop; i++) {
                 const span = charSpans[i];
 
                 if (i >= inputChars.length) {
-                    span.style.fontWeight = '400';
-                    span.style.fontStyle = 'normal';
+                    if (span.style.fontWeight !== '400') span.style.fontWeight = '400';
+                    if (span.style.fontStyle !== 'normal') span.style.fontStyle = 'normal';
                     if (!isComposing) {
                         lastStatusArray[i] = undefined;
                     }
@@ -873,13 +877,11 @@
                     }
                 }
                 
-                if (status === 'correct' || status === 'correct-kata') {
-                    span.style.fontWeight = '900';
-                } else {
-                    span.style.fontWeight = '400';
-                }
-                
-                span.style.fontStyle = (status === 'error') ? 'italic' : 'normal';
+                const targetWeight = (status === 'correct' || status === 'correct-kata') ? '900' : '400';
+                const targetStyle = (status === 'error') ? 'italic' : 'normal';
+
+                if (span.style.fontWeight !== targetWeight) span.style.fontWeight = targetWeight;
+                if (span.style.fontStyle !== targetStyle) span.style.fontStyle = targetStyle;
                 
                 if (status === 'error') {
                     if (isTestable) {
@@ -894,6 +896,8 @@
                 }
             }
 
+            lastRenderedLength = inputChars.length;
+
             if (inputChars.length > currentArticleChars.length) {
                 if (!isComposing && inputChars.length > lastInputLength) {
                     cumulativeMistakes += (inputChars.length - Math.max(currentArticleChars.length, lastInputLength));
@@ -906,7 +910,10 @@
 
             if (inputChars.length !== lastScrolledLength) {
                 lastScrolledLength = inputChars.length;
-                chatArea.scrollTop = chatArea.scrollHeight;
+                const scrollDiff = chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight;
+                if (scrollDiff > 2) {
+                    chatArea.scrollTop = chatArea.scrollHeight;
+                }
             }
 
             let isComplete = false;

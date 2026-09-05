@@ -684,7 +684,8 @@
         let lastStatusArray = [];
         let lastInputLength = 0;
         let isCompleting = false;
-        let lastScrolledIndex = -1;
+        let activeSpanIndex = 0;
+        let lastRenderedLength = 0;
         let imeCompletionFallbackTimer = null;
         let isComposing = false;
 
@@ -737,9 +738,10 @@
             cumulativeMistakes = 0;
             lastStatusArray = [];
             lastInputLength = 0;
+            lastRenderedLength = 0;
+            activeSpanIndex = 0;
             isCompleting = false;
             isComposing = false;
-            lastScrolledIndex = -1;
             if (imeCompletionFallbackTimer) { clearTimeout(imeCompletionFallbackTimer); imeCompletionFallbackTimer = null; }
             render();
             inputEl.focus();
@@ -781,6 +783,8 @@
             }
             targetWordEl.appendChild(fragment);
             cachedSpans = targetWordEl.querySelectorAll('.char-wrapper');
+            activeSpanIndex = 0;
+            lastRenderedLength = 0;
 
             progressEl.textContent = `0 / ${currentArticleChars.length}`;
             textLayerEl.scrollTop = 0;
@@ -805,11 +809,11 @@
                 floatingPlaceholder.style.opacity = inputChars.length > 0 ? '0' : '1';
             }
 
-            for (let i = 0; i < currentArticleChars.length; i++) {
+            const maxLoop = Math.min(currentArticleChars.length, Math.max(inputChars.length, lastRenderedLength));
+
+            for (let i = 0; i < maxLoop; i++) {
                 const wrapper = spans[i];
                 const inputSpan = wrapper._inputSpan;
-                
-                wrapper.classList.remove('is-active');
 
                 if (i >= inputChars.length) {
                     if (wrapper.className !== 'char-wrapper') wrapper.className = 'char-wrapper';
@@ -867,6 +871,8 @@
                 }
             }
 
+            lastRenderedLength = inputChars.length;
+
             if (inputChars.length > currentArticleChars.length) {
                 hasError = true;
 
@@ -881,14 +887,26 @@
 
             inputEl.classList.toggle('error-border', isClassicMode && hasError);
 
-            let activeIndex = Math.min(inputChars.length, currentArticleChars.length - 1);
-            if (inputChars.length < currentArticleChars.length) {
-                spans[activeIndex].classList.add('is-active');
+            const activeIndex = Math.min(inputChars.length, currentArticleChars.length - 1);
+            if (activeIndex !== activeSpanIndex) {
+                if (spans[activeSpanIndex]) spans[activeSpanIndex].classList.remove('is-active');
+                if (inputChars.length < currentArticleChars.length && spans[activeIndex]) {
+                    spans[activeIndex].classList.add('is-active');
+                }
+                activeSpanIndex = activeIndex;
+            } else if (inputChars.length >= currentArticleChars.length && spans[activeSpanIndex]) {
+                spans[activeSpanIndex].classList.remove('is-active');
             }
 
-            if (spans[activeIndex] && activeIndex !== lastScrolledIndex) {
-                lastScrolledIndex = activeIndex;
-                spans[activeIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            if (spans[activeIndex]) {
+                const targetSpan = spans[activeIndex];
+                const containerRect = textLayerEl.getBoundingClientRect();
+                const spanRect = targetSpan.getBoundingClientRect();
+                const isAbove = spanRect.top < containerRect.top + 60;
+                const isBelow = spanRect.bottom > containerRect.bottom - 100;
+                if (isAbove || isBelow) {
+                    targetSpan.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
             }
 
             let isComplete = false;
@@ -1068,7 +1086,7 @@
                 inputEl.classList.toggle('disabled-input', isClassic);
                 return;
             }
-            lastScrolledIndex = -1;
+            activeSpanIndex = -1;
             checkInput();
             if (inputEl.value.length === 0) {
                 window.scrollTo(0, 0); document.body.scrollTop = 0;

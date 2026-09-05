@@ -52,10 +52,11 @@
 
 | ファイル | 役割 |
 | --- | --- |
-| `index.html` | アプリ本体（標準モード UI・ロジック） |
-| `line.html` | アプリ本体（LINE風モード UI・ロジック） |
-| `manifest.json` | PWAマニフェスト（標準モード・LINE風モード共通） |
-| `sw.js` | Service Worker（オフライン対応・キャッシュ管理） |
+| `index.html` | アプリ本体（標準モード UI・練習ロジック） |
+| `line.html` | アプリ本体（LINE風モード UI・練習ロジック） |
+| `kana-core.js` | 共通コアモジュール（かな入力判定・CPM計測・履歴管理・モーダル管理・UIフィードバック等） |
+| `manifest.json` | PWAマニフェスト（標準モード・LINE風モード共通、アプリアイコン・ショートカット対応） |
+| `sw.js` | Service Worker（オフライン対応・キャッシュ更新管理） |
 | `icon.png` / `icon-192.png` / `mode.svg` / `mic.jpg` | アプリアイコン・UI用アイコン画像類 |
 
 ## 技術構成

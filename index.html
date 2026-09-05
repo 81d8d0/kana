@@ -271,14 +271,43 @@
         body.dark-mode .all-keys-option.opt-hiragana,
         body.dark-mode .all-keys-option.opt-katakana { color: #FFFFFF; }
 
-        .modal { display: none; position: fixed; inset: 0; z-index: 100; background-color: var(--modal-bg); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 20px; pointer-events: auto; transition: background-color 0.3s ease; }
+        .modal { 
+            display: none; position: fixed; inset: 0; z-index: 100; 
+            background-color: var(--modal-bg); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); 
+            align-items: center; justify-content: center; padding: 20px; pointer-events: auto; 
+            overscroll-behavior: contain; touch-action: none;
+            opacity: 0;
+            transition: opacity 0.18s ease-out, background-color 0.3s ease; 
+        }
+        .modal.is-open {
+            opacity: 1;
+        }
+        .modal.is-closing {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease-in;
+        }
         
         .modal.modal-top { align-items: flex-start; }
         body.layout-classic .modal.modal-top { padding-top: calc(env(safe-area-inset-top) + 60px); }
         body.layout-document .modal.modal-top { padding-top: calc(env(safe-area-inset-top) + 120px); }
 
-        .modal-content { background-color: var(--surface-color); width: 100%; max-width: 360px; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); transition: background-color 0.3s ease, box-shadow 0.3s ease; }
+        .modal-content { 
+            background-color: var(--surface-color); width: 100%; max-width: 360px; 
+            border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); 
+            touch-action: pan-y;
+            transform: scale(0.96);
+            transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease, box-shadow 0.3s ease; 
+        }
         body.dark-mode .modal-content { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .modal.is-open .modal-content {
+            transform: scale(1);
+        }
+        .modal.is-closing .modal-content {
+            transform: scale(0.96);
+            transition: transform 0.15s ease-in;
+        }
         .modal-content h3 { margin: 0; font-size: 1.2rem; text-align: center; color: var(--text-primary); }
         .modal-textarea { width: 100%; height: 30vh; min-height: 180px; padding: 12px; border-radius: 8px; border: 2px solid var(--input-border); font-size: 1rem; font-family: 'Noto Sans JP', sans-serif; color: var(--text-primary); box-sizing: border-box; background-color: var(--input-bg); resize: none; outline: none; line-height: 1.5; overscroll-behavior-y: contain; transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
         .modal-textarea:focus { border-color: var(--accent-color); }
@@ -294,24 +323,65 @@
         .history-cpm { font-weight: 700; color: var(--accent-color); }
         
         #custom-alert { 
-            display: none; position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%); 
+            display: none; position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(0.95); 
+            opacity: 0;
             width: 80%; max-width: 400px; 
             background-color: var(--accent-color); color: white; padding: 15px 20px; 
             border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 1000; 
             font-weight: 700; text-align: center; box-sizing: border-box; line-height: 1.5; font-size: 1.1rem; 
+            transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease-out;
         }
         body.dark-mode #custom-alert { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #custom-alert.is-open {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+        #custom-alert.is-closing {
+            transform: translate(-50%, -50%) scale(0.95);
+            opacity: 0;
+            transition: transform 0.15s ease-in, opacity 0.15s ease-in;
+        }
 
         #custom-confirm-modal { 
-            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            display: none; position: fixed; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%) scale(0.95); 
+            opacity: 0;
             width: 80%; background-color: var(--accent-color); color: white; padding: 20px; 
             border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 1000; 
             font-weight: 700; text-align: center; box-sizing: border-box; line-height: 1.5; font-size: 1.1rem; 
+            transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease-out;
         }
         body.dark-mode #custom-confirm-modal { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #custom-confirm-modal.is-open {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+        #custom-confirm-modal.is-closing {
+            transform: translate(-50%, -50%) scale(0.95);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.15s ease-in, opacity 0.15s ease-in;
+        }
         #custom-confirm-modal .modal-buttons { display: flex; gap: 10px; margin-top: 15px; justify-content: center; }
         #custom-confirm-modal .btn { background-color: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.5); flex: 1; }
         #custom-confirm-modal .btn.error { background-color: var(--error-color); border: none; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .modal, .modal.is-closing,
+            .modal-content, .modal.is-closing .modal-content,
+            #custom-confirm-modal, #custom-confirm-modal.is-closing,
+            #custom-alert, #custom-alert.is-closing {
+                animation: none !important;
+                transition: none !important;
+                transform: none !important;
+            }
+            #custom-confirm-modal, #custom-confirm-modal.is-closing {
+                transform: translate(-50%, -50%) !important;
+            }
+            #custom-alert, #custom-alert.is-closing {
+                transform: translate(-50%, -50%) !important;
+            }
+        }
 
         @view-transition {
             navigation: auto;
@@ -534,24 +604,133 @@
     }
 
     const ModalManager = (() => {
-        const openModals = new Set();
+        const openModals = [];
         const closeCallbacks = new WeakMap();
+        let onAllClosedCallback = null;
+        let isInitialized = false;
+
+        function init() {
+            if (isInitialized) return;
+            isInitialized = true;
+
+            // Global Escape key support (Item 3)
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && openModals.length > 0) {
+                    e.preventDefault();
+                    closeTop();
+                }
+            });
+
+            // Set up backdrop click & touchmove protection on all modals (Items 2 & 5)
+            document.querySelectorAll('.modal').forEach(setupBackdropListeners);
+        }
+
+        function setupBackdropListeners(modal) {
+            if (modal.dataset.modalInit) return;
+            modal.dataset.modalInit = 'true';
+
+            let isBackdropDown = false;
+
+            modal.addEventListener('mousedown', (e) => {
+                isBackdropDown = (e.target === modal);
+            });
+
+            modal.addEventListener('click', (e) => {
+                if (isBackdropDown && e.target === modal) {
+                    close(modal);
+                }
+                isBackdropDown = false;
+            });
+
+            // Scroll lock on backdrop (Item 5):
+            // Prevent rubber-band touch dragging on backdrop without touching body styles
+            modal.addEventListener('touchmove', (e) => {
+                if (e.target === modal) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        }
+
         function open(modal, { display = 'flex', onOpen, onClose } = {}) {
             if (!modal) return;
-            modal.style.display = display; openModals.add(modal);
+            init();
+            setupBackdropListeners(modal);
+
+            const idx = openModals.indexOf(modal);
+            if (idx === -1) {
+                openModals.push(modal);
+            }
+
             if (onClose) closeCallbacks.set(modal, onClose);
             else closeCallbacks.delete(modal);
+
+            modal.classList.remove('is-closing');
+            modal.style.display = display;
+
+            requestAnimationFrame(() => {
+                modal.classList.add('is-open');
+            });
+
             if (onOpen) onOpen();
         }
-        function close(modal) {
+
+        function close(modal, { immediate = false } = {}) {
             if (!modal) return;
-            modal.style.display = 'none'; openModals.delete(modal);
+            const idx = openModals.indexOf(modal);
+            if (idx !== -1) {
+                openModals.splice(idx, 1);
+            }
+
             const cb = closeCallbacks.get(modal);
-            if (cb) { closeCallbacks.delete(modal); cb(); }
+            if (cb) {
+                closeCallbacks.delete(modal);
+                cb();
+            }
+
+            const wasOpen = modal.classList.contains('is-open');
+            modal.classList.remove('is-open');
+
+            let finalized = false;
+            const finalize = () => {
+                if (finalized) return;
+                finalized = true;
+                modal.classList.remove('is-closing');
+                modal.style.display = 'none';
+            };
+
+            if (immediate || !wasOpen) {
+                finalize();
+            } else {
+                modal.classList.add('is-closing');
+                modal.addEventListener('transitionend', finalize, { once: true });
+                setTimeout(finalize, 180);
+            }
+
+            // If all modals have closed, restore typing focus (Item 4)
+            if (openModals.length === 0 && onAllClosedCallback) {
+                onAllClosedCallback();
+            }
         }
-        function isAnyOpen() { return openModals.size > 0; }
-        function bindClose(btn, modal) { if (btn) btn.addEventListener('click', () => close(modal)); }
-        return { open, close, isAnyOpen, bindClose };
+
+        function closeTop() {
+            if (openModals.length === 0) return;
+            const top = openModals[openModals.length - 1];
+            close(top);
+        }
+
+        function isAnyOpen() {
+            return openModals.length > 0;
+        }
+
+        function bindClose(btn, modal) {
+            if (btn) btn.addEventListener('click', () => close(modal));
+        }
+
+        function setAllClosedCallback(fn) {
+            onAllClosedCallback = fn;
+        }
+
+        return { init, open, close, closeTop, isAnyOpen, bindClose, setAllClosedCallback };
     })();
 
     const UiFeedback = (() => {
@@ -571,27 +750,48 @@
                 customAlert.style.top = '';
             }
             customAlert.style.display = 'block';
+            customAlert.classList.remove('is-closing');
+            requestAnimationFrame(() => customAlert.classList.add('is-open'));
+
             if (alertTimeout) clearTimeout(alertTimeout);
-            alertTimeout = setTimeout(() => { customAlert.style.display = 'none'; }, 2000);
+            alertTimeout = setTimeout(() => {
+                customAlert.classList.remove('is-open');
+                customAlert.classList.add('is-closing');
+                setTimeout(() => {
+                    customAlert.style.display = 'none';
+                    customAlert.classList.remove('is-closing');
+                }, 160);
+            }, 2000);
         }
 
         function confirm(message) {
             return new Promise((resolve) => {
                 confirmMsgEl.textContent = message;
-                ModalManager.open(confirmModal, { display: 'block' });
-                const cleanup = () => {
-                    ModalManager.close(confirmModal);
+                let resolved = false;
+                const cleanup = (val) => {
+                    if (resolved) return;
+                    resolved = true;
                     confirmOkBtn.removeEventListener('click', onOk);
                     confirmCancelBtn.removeEventListener('click', onCancel);
+                    ModalManager.close(confirmModal);
+                    resolve(val);
                 };
-                const onOk = () => { cleanup(); resolve(true); };
-                const onCancel = () => { cleanup(); resolve(false); };
+                const onOk = () => cleanup(true);
+                const onCancel = () => cleanup(false);
                 confirmOkBtn.addEventListener('click', onOk);
                 confirmCancelBtn.addEventListener('click', onCancel);
+
+                ModalManager.open(confirmModal, {
+                    display: 'block',
+                    onClose: () => cleanup(false)
+                });
             });
         }
         return { alert, confirm, confirmModal };
     })();
+
+    window.ModalManager = ModalManager;
+    window.UiFeedback = UiFeedback;
 
     const ThemeManager = (() => {
         const STORAGE_KEY = 'kana_practice_theme';
@@ -1428,7 +1628,13 @@
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') PracticeEngine.restoreFocusAndCaret(); });
     window.addEventListener('focus', () => PracticeEngine.restoreFocusAndCaret());
 
-    window.onload = () => PracticeEngine.init();
+    window.onload = () => {
+        ModalManager.init();
+        ModalManager.setAllClosedCallback(() => {
+            PracticeEngine.restoreFocusAndCaret();
+        });
+        PracticeEngine.init();
+    };
 })();
 </script>
 </body>

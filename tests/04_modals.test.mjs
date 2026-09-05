@@ -25,6 +25,7 @@ test('E2E: Modals open/close behaviors and dark mode toggle', async () => {
         assert.notEqual(historyDisplayOpen, 'none', 'History modal should be visible when opened');
 
         await client.evaluate(`document.getElementById('close-history-btn').click()`);
+        await new Promise(r => setTimeout(r, 200));
         const historyDisplayClosed = await client.evaluate(`getComputedStyle(document.getElementById('history-modal')).display`);
         assert.equal(historyDisplayClosed, 'none', 'History modal should be hidden when closed');
 
@@ -38,6 +39,7 @@ test('E2E: Modals open/close behaviors and dark mode toggle', async () => {
         assert.ok(editModalState.textareaVal.length > 0, 'Edit modal textarea should be populated with current phrases');
 
         await client.evaluate(`document.getElementById('cancel-edit-btn').click()`);
+        await new Promise(r => setTimeout(r, 200));
         const editDisplayClosed = await client.evaluate(`getComputedStyle(document.getElementById('edit-modal')).display`);
         assert.equal(editDisplayClosed, 'none');
 
@@ -47,6 +49,7 @@ test('E2E: Modals open/close behaviors and dark mode toggle', async () => {
         assert.notEqual(pasteDisplayOpen, 'none');
 
         await client.evaluate(`document.getElementById('cancel-paste-btn').click()`);
+        await new Promise(r => setTimeout(r, 200));
         const pasteDisplayClosed = await client.evaluate(`getComputedStyle(document.getElementById('paste-modal')).display`);
         assert.equal(pasteDisplayClosed, 'none');
 

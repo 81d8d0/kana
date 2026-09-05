@@ -277,8 +277,19 @@
 
         .modal {
             display: none; position: fixed; inset: 0; z-index: 200;
-            background-color: var(--modal-bg); backdrop-filter: blur(4px);
+            background-color: var(--modal-bg); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
             align-items: center; justify-content: center; padding: 20px;
+            overscroll-behavior: contain; touch-action: none;
+            opacity: 0;
+            transition: opacity 0.18s ease-out, background-color 0.3s ease;
+        }
+        .modal.is-open {
+            opacity: 1;
+        }
+        .modal.is-closing {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease-in;
         }
         .modal.modal-top { align-items: flex-start; padding-top: calc(env(safe-area-inset-top) + 60px); }
 
@@ -286,6 +297,16 @@
             background-color: var(--surface-color); width: 100%; max-width: 380px;
             border-radius: 16px; padding: 20px; display: flex;
             flex-direction: column; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            touch-action: pan-y;
+            transform: scale(0.96);
+            transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .modal.is-open .modal-content {
+            transform: scale(1);
+        }
+        .modal.is-closing .modal-content {
+            transform: scale(0.96);
+            transition: transform 0.15s ease-in;
         }
         .modal-content h3 { margin: 0; font-size: 1.1rem; text-align: center; color: var(--text-primary); }
         .modal-hint { font-size: 0.8rem; color: var(--text-secondary); text-align: center; margin-top: -5px; line-height: 1.4; }
@@ -348,11 +369,39 @@
         .history-item:last-child { border-bottom: none; }
         
         #custom-alert { 
-            display: none; position: fixed; left: 50%; top: 20%; transform: translate(-50%, -50%); 
+            display: none; position: fixed; left: 50%; top: 20%; transform: translate(-50%, -50%) scale(0.95); 
+            opacity: 0;
             width: 80%; max-width: 400px;
             background-color: var(--accent-color); color: white; padding: 15px 20px; 
             border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 1000; 
             font-weight: 700; text-align: center; box-sizing: border-box; line-height: 1.5; font-size: 1.1rem; 
+            transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease-out;
+        }
+        #custom-alert.is-open {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+        #custom-alert.is-closing {
+            transform: translate(-50%, -50%) scale(0.95);
+            opacity: 0;
+            transition: transform 0.15s ease-in, opacity 0.15s ease-in;
+        }
+
+        #confirm-modal {
+            z-index: 250;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .modal, .modal.is-closing,
+            .modal-content, .modal.is-closing .modal-content,
+            #custom-alert, #custom-alert.is-closing {
+                animation: none !important;
+                transition: none !important;
+                transform: none !important;
+            }
+            #custom-alert, #custom-alert.is-closing {
+                transform: translate(-50%, -50%) !important;
+            }
         }
 
         @view-transition {
@@ -496,37 +545,188 @@
         }
     };
 
-    const ModalManager = {
-        open(modal) { if (modal) modal.style.display = 'flex'; },
-        close(modal) { if (modal) modal.style.display = 'none'; }
-    };
+    const ModalManager = (() => {
+        const openModals = [];
+        const closeCallbacks = new WeakMap();
+        let onAllClosedCallback = null;
+        let isInitialized = false;
+
+        function init() {
+            if (isInitialized) return;
+            isInitialized = true;
+
+            // Global Escape key support (Item 3)
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && openModals.length > 0) {
+                    e.preventDefault();
+                    closeTop();
+                }
+            });
+
+            // Set up backdrop click & touchmove protection on all modals (Items 2 & 5)
+            document.querySelectorAll('.modal').forEach(setupBackdropListeners);
+        }
+
+        function setupBackdropListeners(modal) {
+            if (modal.dataset.modalInit) return;
+            modal.dataset.modalInit = 'true';
+
+            let isBackdropDown = false;
+
+            modal.addEventListener('mousedown', (e) => {
+                isBackdropDown = (e.target === modal);
+            });
+
+            modal.addEventListener('click', (e) => {
+                if (isBackdropDown && e.target === modal) {
+                    close(modal);
+                }
+                isBackdropDown = false;
+            });
+
+            // Scroll lock on backdrop (Item 5):
+            // Prevent rubber-band touch dragging on backdrop without touching body styles
+            modal.addEventListener('touchmove', (e) => {
+                if (e.target === modal) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        }
+
+        function open(modal, { display = 'flex', onOpen, onClose } = {}) {
+            if (!modal) return;
+            init();
+            setupBackdropListeners(modal);
+
+            const idx = openModals.indexOf(modal);
+            if (idx === -1) {
+                openModals.push(modal);
+            }
+
+            if (onClose) closeCallbacks.set(modal, onClose);
+            else closeCallbacks.delete(modal);
+
+            modal.classList.remove('is-closing');
+            modal.style.display = display;
+
+            requestAnimationFrame(() => {
+                modal.classList.add('is-open');
+            });
+
+            if (onOpen) onOpen();
+        }
+
+        function close(modal, { immediate = false } = {}) {
+            if (!modal) return;
+            const idx = openModals.indexOf(modal);
+            if (idx !== -1) {
+                openModals.splice(idx, 1);
+            }
+
+            const cb = closeCallbacks.get(modal);
+            if (cb) {
+                closeCallbacks.delete(modal);
+                cb();
+            }
+
+            const wasOpen = modal.classList.contains('is-open');
+            modal.classList.remove('is-open');
+
+            let finalized = false;
+            const finalize = () => {
+                if (finalized) return;
+                finalized = true;
+                modal.classList.remove('is-closing');
+                modal.style.display = 'none';
+            };
+
+            if (immediate || !wasOpen) {
+                finalize();
+            } else {
+                modal.classList.add('is-closing');
+                modal.addEventListener('transitionend', finalize, { once: true });
+                setTimeout(finalize, 180);
+            }
+
+            // If all modals have closed, restore typing focus (Item 4)
+            if (openModals.length === 0 && onAllClosedCallback) {
+                onAllClosedCallback();
+            }
+        }
+
+        function closeTop() {
+            if (openModals.length === 0) return;
+            const top = openModals[openModals.length - 1];
+            close(top);
+        }
+
+        function isAnyOpen() {
+            return openModals.length > 0;
+        }
+
+        function bindClose(btn, modal) {
+            if (btn) btn.addEventListener('click', () => close(modal));
+        }
+
+        function setAllClosedCallback(fn) {
+            onAllClosedCallback = fn;
+        }
+
+        return { init, open, close, closeTop, isAnyOpen, bindClose, setAllClosedCallback };
+    })();
 
     const UiFeedback = {
         alert(msg) {
             const el = document.getElementById('custom-alert');
-            el.textContent = msg; el.style.display = 'block';
-            setTimeout(() => { el.style.display = 'none'; }, 2000);
+            el.textContent = msg; 
+            el.style.display = 'block';
+            el.classList.remove('is-closing');
+            requestAnimationFrame(() => el.classList.add('is-open'));
+
+            setTimeout(() => { 
+                el.classList.remove('is-open');
+                el.classList.add('is-closing');
+                setTimeout(() => {
+                    el.style.display = 'none';
+                    el.classList.remove('is-closing');
+                }, 160);
+            }, 2000);
         },
         confirm(message, onConfirm, okLabel = '削除') {
-            const modal = document.getElementById('confirm-modal');
-            const textEl = document.getElementById('confirm-modal-text');
-            const okBtn = document.getElementById('confirm-modal-ok-btn');
-            const cancelBtn = document.getElementById('confirm-modal-cancel-btn');
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirm-modal');
+                const textEl = document.getElementById('confirm-modal-text');
+                const okBtn = document.getElementById('confirm-modal-ok-btn');
+                const cancelBtn = document.getElementById('confirm-modal-cancel-btn');
 
-            textEl.textContent = message;
-            okBtn.textContent = okLabel;
+                textEl.textContent = message;
+                okBtn.textContent = okLabel;
 
-            const cleanup = () => {
-                okBtn.onclick = null;
-                cancelBtn.onclick = null;
-                ModalManager.close(modal);
-            };
-            okBtn.onclick = () => { cleanup(); onConfirm(); };
-            cancelBtn.onclick = cleanup;
+                let resolved = false;
+                const cleanup = (confirmed) => {
+                    if (resolved) return;
+                    resolved = true;
+                    okBtn.onclick = null;
+                    cancelBtn.onclick = null;
+                    ModalManager.close(modal);
+                    if (confirmed && typeof onConfirm === 'function') {
+                        onConfirm();
+                    }
+                    resolve(confirmed);
+                };
 
-            ModalManager.open(modal);
+                okBtn.onclick = () => cleanup(true);
+                cancelBtn.onclick = () => cleanup(false);
+
+                ModalManager.open(modal, {
+                    onClose: () => cleanup(false)
+                });
+            });
         }
     };
+
+    window.ModalManager = ModalManager;
+    window.UiFeedback = UiFeedback;
 
     function escapeHtml(str) {
         return String(str).replace(/[&<>"']/g, ch => ({
@@ -1206,6 +1406,16 @@
 
     function bindModals() {
         ThemeManager.init();
+        ModalManager.init();
+        ModalManager.setAllClosedCallback(() => {
+            const inputEl = document.getElementById('kana-input');
+            if (inputEl && !inputEl.disabled) {
+                inputEl.focus({ preventScroll: true });
+                const len = inputEl.value.length;
+                inputEl.setSelectionRange(len, len);
+                inputEl.scrollLeft = inputEl.scrollWidth;
+            }
+        });
 
         const hamburgerBtn = document.getElementById('hamburger-btn');
         const hamburgerMenu = document.getElementById('hamburger-menu');
@@ -1249,7 +1459,7 @@
         document.getElementById('menu-paste').onclick = () => { 
             closeMenu();
             pasteTextarea.value = SafeStorage.get(PASTE_STORAGE_KEY, '');
-            ModalManager.open(pasteModal); 
+            ModalManager.open(pasteModal, { onOpen: () => pasteTextarea.focus() }); 
         };
         document.getElementById('cancel-paste-btn').onclick = () => ModalManager.close(pasteModal);
         document.getElementById('clear-paste-btn').onclick = () => {
@@ -1276,10 +1486,11 @@
         };
 
         const editModal = document.getElementById('edit-modal');
+        const editTextarea = document.getElementById('edit-textarea');
         document.getElementById('menu-phrase').onclick = () => { 
             closeMenu();
-            document.getElementById('edit-textarea').value = PracticeEngine.getPool().join('\n');
-            ModalManager.open(editModal);
+            editTextarea.value = PracticeEngine.getPool().join('\n');
+            ModalManager.open(editModal, { onOpen: () => editTextarea.focus() });
         };
         document.getElementById('cancel-edit-btn').onclick = () => ModalManager.close(editModal);
         document.getElementById('reset-edit-btn').onclick = () => {

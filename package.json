@@ -4,7 +4,7 @@
   "description": "Japanese Kana flick typing practice app with regression tests",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.mjs",
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
     "test:unit": "node --test tests/01_*.test.mjs tests/02_*.test.mjs",
     "test:e2e": "node --test tests/03_*.test.mjs tests/04_*.test.mjs tests/05_*.test.mjs"
   }

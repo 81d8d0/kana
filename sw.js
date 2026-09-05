@@ -1,4 +1,4 @@
-const CACHE_VERSION = '26.9.05.4';
+const CACHE_VERSION = '26.9.06';
 const CACHE_NAME = `kana-${CACHE_VERSION}`;
 const FONT_CACHE_NAME = `kana-fonts-${CACHE_VERSION}`;
 const CORE_ASSETS = [

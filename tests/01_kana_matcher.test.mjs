@@ -1,12 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractFromHtml } from './test-helper.mjs';
+import '../kana-core.js';
 
-const KanaMatcher = extractFromHtml(
-    'index.html',
-    /const KanaMatcher = \(\(\) => \{[\s\S]*?\}\)\(\);/,
-    'KanaMatcher'
-);
+const { KanaMatcher } = globalThis;
 
 test('KanaMatcher: Basic Hiragana input matching', () => {
     assert.equal(KanaMatcher.classify('あ', 'あ'), 'correct');

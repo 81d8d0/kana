@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractFromHtml } from './test-helper.mjs';
 
 // Create a mock localStorage for testing HistoryStore
 const mockStorage = new Map();
@@ -11,12 +10,10 @@ const mockLocalStorage = {
     clear: () => mockStorage.clear()
 };
 
-const HistoryStore = extractFromHtml(
-    'index.html',
-    /const HistoryStore = \(\(\) => \{[\s\S]*?\}\)\(\);/,
-    'HistoryStore',
-    { localStorage: mockLocalStorage }
-);
+globalThis.localStorage = mockLocalStorage;
+
+await import('../kana-core.js');
+const { HistoryStore, DEFAULT_POOL, ALL_KEYS_GROUPS } = globalThis;
 
 test('HistoryStore: save record and respect MAX_RECORDS (200)', () => {
     mockStorage.clear();
@@ -61,26 +58,16 @@ test('HistoryStore: JSON import validation', () => {
 });
 
 test('Sentence Pool & All Keys groups data integrity', () => {
-    const poolModule = extractFromHtml(
-        'index.html',
-        /const DEFAULT_SENTENCE_POOL = \[[\s\S]*?\];/,
-        'DEFAULT_SENTENCE_POOL'
-    );
-    assert.ok(Array.isArray(poolModule));
-    assert.ok(poolModule.length >= 10, 'Pool should have at least 10 practice sentences');
-    for (const sentence of poolModule) {
+    assert.ok(Array.isArray(DEFAULT_POOL));
+    assert.ok(DEFAULT_POOL.length >= 10, 'Pool should have at least 10 practice sentences');
+    for (const sentence of DEFAULT_POOL) {
         assert.ok(typeof sentence === 'string' && sentence.length > 0);
         assert.ok(!/[\r\n\t]/.test(sentence));
     }
 
-    const allKeysModule = extractFromHtml(
-        'index.html',
-        /const ALL_KEYS_GROUPS = \[[\s\S]*?\];/,
-        'ALL_KEYS_GROUPS'
-    );
-    assert.ok(Array.isArray(allKeysModule));
-    assert.equal(allKeysModule.length, 4, 'Should have 4 groups (hiragana, katakana, youon, gairai)');
-    for (const group of allKeysModule) {
+    assert.ok(Array.isArray(ALL_KEYS_GROUPS));
+    assert.equal(ALL_KEYS_GROUPS.length, 4, 'Should have 4 groups (hiragana, katakana, youon, gairai)');
+    for (const group of ALL_KEYS_GROUPS) {
         assert.ok(typeof group === 'string' && group.length > 0);
     }
 });

@@ -21,5 +21,19 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "通常モード",
+      "short_name": "通常",
+      "url": "./",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "LINE風モード",
+      "short_name": "LINE風",
+      "url": "./line.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }

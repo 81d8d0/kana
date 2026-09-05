@@ -72,6 +72,23 @@
         return String(str || '').replace(EMOJI_REGEX, '');
     }
 
+    function setAppHeight() {
+        if (typeof document === 'undefined' || typeof window === 'undefined') return;
+        document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+    }
+
+    if (typeof window !== 'undefined') {
+        window.addEventListener('resize', setAppHeight);
+        window.addEventListener('orientationchange', setAppHeight);
+        if (typeof document !== 'undefined') {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', setAppHeight);
+            } else {
+                setAppHeight();
+            }
+        }
+    }
+
     // 3. KanaMatcher: Japanese flick input classification engine
     const KanaMatcher = (() => {
         const isKatakana = (ch) => /[\u30A0-\u30FF]/.test(ch);
@@ -534,6 +551,134 @@
         };
     })();
 
+    // 9. ThemeManager: unified dark mode sync across pages
+    const ThemeManager = (() => {
+        const STORAGE_KEY = 'kana_practice_theme';
+        const LINE_STORAGE_KEY = 'kana_line_theme';
+
+        function getSavedTheme() {
+            return SafeStorage.get(STORAGE_KEY) || SafeStorage.get(LINE_STORAGE_KEY);
+        }
+
+        function isDark() {
+            if (typeof document === 'undefined') return false;
+            return document.body.classList.contains('dark-mode');
+        }
+
+        function apply(theme) {
+            if (typeof document === 'undefined') return;
+            document.body.classList.toggle('dark-mode', theme === 'dark');
+        }
+
+        function toggle() {
+            if (typeof document === 'undefined') return;
+            document.body.classList.toggle('dark-mode');
+            const theme = isDark() ? 'dark' : 'light';
+            SafeStorage.set(STORAGE_KEY, theme);
+            SafeStorage.set(LINE_STORAGE_KEY, theme);
+            return theme;
+        }
+
+        function init(btn) {
+            if (typeof document === 'undefined') return;
+            const saved = getSavedTheme();
+            if (saved === 'dark') {
+                document.body.classList.add('dark-mode');
+            }
+            const toggleBtn = btn || document.getElementById('theme-toggle-btn');
+            if (toggleBtn && !toggleBtn._themeBound) {
+                toggleBtn._themeBound = true;
+                toggleBtn.addEventListener('click', toggle);
+            }
+        }
+
+        return { init, toggle, isDark, apply, getSavedTheme, STORAGE_KEY, LINE_STORAGE_KEY };
+    })();
+
+    // 10. HistoryUI: unified history modal rendering, export, import, and clearing
+    const HistoryUI = (() => {
+        function render(listEl) {
+            if (typeof document === 'undefined') return;
+            const target = listEl || document.getElementById('history-list');
+            if (!target) return;
+            const records = HistoryStore.load();
+            if (records.length === 0) {
+                target.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding: 20px 0;">入力履歴はありません</div>';
+                return;
+            }
+            target.innerHTML = records.map(r =>
+                `<div class="history-item"><span class="history-date">${escapeHtml(r.date)}</span><span class="history-cpm">${escapeHtml(r.cpm)}</span></div>`
+            ).join('');
+        }
+
+        function downloadExport() {
+            if (typeof document === 'undefined') return;
+            const a = document.createElement('a');
+            a.setAttribute('href', HistoryStore.exportToDataUri());
+            a.setAttribute('download', 'kana_records.json');
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        function bind({
+            modal = (typeof document !== 'undefined' ? document.getElementById('history-modal') : null),
+            list = (typeof document !== 'undefined' ? document.getElementById('history-list') : null),
+            openBtn = (typeof document !== 'undefined' ? document.getElementById('history-btn') : null),
+            closeBtn = (typeof document !== 'undefined' ? document.getElementById('close-history-btn') : null),
+            clearBtn = (typeof document !== 'undefined' ? document.getElementById('clear-history-btn') : null),
+            exportBtn = (typeof document !== 'undefined' ? document.getElementById('export-btn') : null),
+            importBtn = (typeof document !== 'undefined' ? document.getElementById('import-btn') : null),
+            importFile = (typeof document !== 'undefined' ? document.getElementById('import-file') : null)
+        } = {}) {
+            if (openBtn && modal) {
+                openBtn.addEventListener('click', () => {
+                    render(list);
+                    ModalManager.open(modal);
+                });
+            }
+
+            if (closeBtn && modal) {
+                ModalManager.bindClose(closeBtn, modal);
+            }
+
+            if (clearBtn) {
+                clearBtn.addEventListener('click', async () => {
+                    if (await UiFeedback.confirm('すべての入力履歴を削除しますか？この操作は元に戻せません。')) {
+                        HistoryStore.clear();
+                        render(list);
+                    }
+                });
+            }
+
+            if (exportBtn) {
+                exportBtn.addEventListener('click', downloadExport);
+            }
+
+            if (importBtn && importFile) {
+                importBtn.addEventListener('click', () => importFile.click());
+                importFile.addEventListener('change', (e) => {
+                    const file = e.target.files && e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                        try {
+                            HistoryStore.importFromJson(evt.target.result);
+                            render(list);
+                            UiFeedback.alert('入力履歴をインポートしました。');
+                        } catch (err) {
+                            UiFeedback.alert('対応していないファイル形式です。');
+                        }
+                        importFile.value = '';
+                    };
+                    reader.readAsText(file);
+                });
+            }
+        }
+
+        return { render, downloadExport, bind };
+    })();
+
     // Export to global scope (Browser window / worker / node globalThis)
     global.SafeStorage = SafeStorage;
     global.escapeHtml = escapeHtml;
@@ -549,6 +694,9 @@
     global.UiFeedback = UiFeedback;
     global.stripEmojis = stripEmojis;
     global.EMOJI_REGEX = EMOJI_REGEX;
+    global.setAppHeight = setAppHeight;
+    global.ThemeManager = ThemeManager;
+    global.HistoryUI = HistoryUI;
 
     // Export to CommonJS / Node.js if present
     if (typeof module !== 'undefined' && module.exports) {
@@ -559,6 +707,7 @@
             retrySequence,
             stripEmojis,
             EMOJI_REGEX,
+            setAppHeight,
             KanaMatcher,
             CpmTracker,
             DEFAULT_POOL,
@@ -566,7 +715,10 @@
             ALL_KEYS_GROUPS,
             HistoryStore,
             ModalManager,
-            UiFeedback
+            UiFeedback,
+            ThemeManager,
+            HistoryUI
         };
     }
 })(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this));
+

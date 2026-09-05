@@ -537,12 +537,6 @@
         }).catch(err => console.error('SW Fail', err));
     }
 
-    function setAppHeight() {
-        document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
-    }
-    setAppHeight();
-    window.addEventListener('resize', setAppHeight);
-    window.addEventListener('orientationchange', setAppHeight);
 
     function appendInlineActions(options) {
         const chatArea = document.getElementById('chat-area');
@@ -580,24 +574,6 @@
         return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     }
 
-    const ThemeManager = (() => {
-        const STORAGE_KEY = 'kana_practice_theme';
-        const toggleBtn = document.getElementById('theme-toggle-btn');
-        function init() {
-            const saved = SafeStorage.get(STORAGE_KEY) || SafeStorage.get('kana_line_theme');
-            if (saved === 'dark') {
-                document.body.classList.add('dark-mode');
-            }
-            toggleBtn.addEventListener('click', () => {
-                document.body.classList.toggle('dark-mode');
-                const isDark = document.body.classList.contains('dark-mode');
-                const theme = isDark ? 'dark' : 'light';
-                SafeStorage.set(STORAGE_KEY, theme);
-                SafeStorage.set('kana_line_theme', theme);
-            });
-        }
-        return { init };
-    })();
 
     const PracticeEngine = (() => {
         let activePool = JSON.parse(SafeStorage.get('kana_practice_custom_pool', JSON.stringify(DEFAULT_POOL)));
@@ -1078,15 +1054,7 @@
         };
     })();
 
-    function renderHistory() {
-        const list = document.getElementById('history-list');
-        const records = HistoryStore.load();
-        if (!records.length) {
-            list.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding: 20px 0;">入力履歴はありません</div>';
-            return;
-        }
-        list.innerHTML = records.map(r => `<div class="history-item"><span class="history-date">${escapeHtml(r.date)}</span><span class="history-cpm" style="font-weight: 700; color: var(--accent-color);">${escapeHtml(r.cpm)}</span></div>`).join('');
-    }
+    const renderHistory = () => HistoryUI.render();
 
     function bindModals() {
         ThemeManager.init();
@@ -1203,42 +1171,7 @@
             window.location.href = './'; 
         };
 
-        const historyModal = document.getElementById('history-modal');
-        document.getElementById('close-history-btn').onclick = () => ModalManager.close(historyModal);
-        document.getElementById('clear-history-btn').onclick = () => {
-            UiFeedback.confirm('すべての入力履歴を削除しますか？この操作は元に戻せません。', () => {
-                HistoryStore.clear();
-                renderHistory();
-            });
-        };
-
-        document.getElementById('export-btn').onclick = () => {
-            const a = document.createElement('a');
-            a.setAttribute('href', HistoryStore.exportToDataUri());
-            a.setAttribute('download', 'kana_records.json');
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-        };
-
-        const importFile = document.getElementById('import-file');
-        document.getElementById('import-btn').onclick = () => importFile.click();
-        importFile.onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                try {
-                    HistoryStore.importFromJson(evt.target.result);
-                    renderHistory();
-                    UiFeedback.alert('入力履歴をインポートしました。');
-                } catch (err) {
-                    UiFeedback.alert('対応していないファイル形式です。');
-                }
-                importFile.value = '';
-            };
-            reader.readAsText(file);
-        };
+        HistoryUI.bind();
     }
 
     let initialized = false;

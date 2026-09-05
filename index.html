@@ -579,28 +579,81 @@
         }).catch(err => console.error('SW Fail', err));
     }
 
-    function setAppHeight() {
-        document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
-    }
-    setAppHeight();
-    window.addEventListener('resize', setAppHeight);
-    window.addEventListener('orientationchange', setAppHeight);
+    const ViewportManager = (() => {
+        const textLayerEl = document.getElementById('text-layer');
+        const inputEl = document.getElementById('kana-input');
+        const tabletMediaQuery = window.matchMedia('(min-width: 600px)');
+        let lastPinnedWidth = window.innerWidth;
+        let baseHeight = window.innerHeight;
 
-    const ThemeManager = (() => {
-        const STORAGE_KEY = 'kana_practice_theme';
-        const toggleBtn = document.getElementById('theme-toggle-btn');
+        function pinInputTopOffset() {
+            if (!tabletMediaQuery.matches) return;
+            const offsetPx = (window.innerWidth > window.innerHeight) ? 240 : Math.round(baseHeight * 0.38);
+            document.documentElement.style.setProperty('--input-top-offset', offsetPx + 'px');
+            document.documentElement.style.setProperty('--text-padding-bottom', `calc(100vh - ${offsetPx - 40}px)`);
+        }
+
+        function handleWindowResize() {
+            if (window.innerWidth === lastPinnedWidth) return;
+            lastPinnedWidth = window.innerWidth;
+            baseHeight = window.innerHeight;
+            pinInputTopOffset();
+        }
+
+        function forceShowArticleStart() {
+            if (inputEl.value.length > 0) return;
+            window.scrollTo(0, 0);
+            document.body.scrollTop = 0;
+            document.documentElement.scrollTop = 0;
+            if (textLayerEl) textLayerEl.scrollTop = 0;
+        }
+
+        function scrollToActive(span) {
+            if (!span || !textLayerEl) return;
+            const containerRect = textLayerEl.getBoundingClientRect();
+            const spanRect = span.getBoundingClientRect();
+            const isAbove = spanRect.top < containerRect.top + 60;
+            const isBelow = spanRect.bottom > containerRect.bottom - 100;
+            if (isAbove || isBelow) {
+                span.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
         function init() {
-            const saved = SafeStorage.get(STORAGE_KEY) || SafeStorage.get('kana_line_theme');
-            if (saved === 'dark') document.body.classList.add('dark-mode');
-            toggleBtn.addEventListener('click', toggle);
+            pinInputTopOffset();
+            let resizeDebounceTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeDebounceTimer);
+                resizeDebounceTimer = setTimeout(handleWindowResize, 100);
+            });
+            window.addEventListener('orientationchange', () => {
+                lastPinnedWidth = window.innerWidth;
+                baseHeight = window.innerHeight;
+                pinInputTopOffset();
+            });
+            tabletMediaQuery.addEventListener('change', pinInputTopOffset);
+
+            if (textLayerEl) {
+                textLayerEl.addEventListener('click', () => {
+                    const isClassicMode = LayoutManager.getActiveLayout() === 'classic';
+                    if (!isClassicMode && !inputEl.readOnly && !ModalManager.isAnyOpen()) {
+                        inputEl.focus();
+                    }
+                });
+            }
+
+            inputEl.addEventListener('focus', () => {
+                requestAnimationFrame(forceShowArticleStart);
+                retrySequence(forceShowArticleStart);
+            });
+
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', forceShowArticleStart);
+                window.visualViewport.addEventListener('scroll', forceShowArticleStart);
+            }
         }
-        function toggle() {
-            document.body.classList.toggle('dark-mode');
-            const theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
-            SafeStorage.set(STORAGE_KEY, theme);
-            SafeStorage.set('kana_line_theme', theme);
-        }
-        return { init };
+
+        return { init, pinInputTopOffset, forceShowArticleStart, scrollToActive };
     })();
 
     const LayoutManager = (() => {
@@ -898,16 +951,7 @@
                 spans[activeSpanIndex].classList.remove('is-active');
             }
 
-            if (spans[activeIndex]) {
-                const targetSpan = spans[activeIndex];
-                const containerRect = textLayerEl.getBoundingClientRect();
-                const spanRect = targetSpan.getBoundingClientRect();
-                const isAbove = spanRect.top < containerRect.top + 60;
-                const isBelow = spanRect.bottom > containerRect.bottom - 100;
-                if (isAbove || isBelow) {
-                    targetSpan.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }
-            }
+            ViewportManager.scrollToActive(spans[activeIndex]);
 
             let isComplete = false;
             
@@ -1031,55 +1075,6 @@
         CpmTracker.configure({ getInputLength: () => inputEl.value.length, isReadOnly: () => inputEl.readOnly });
         inputEl.addEventListener('input', checkInput);
 
-        const tabletMediaQuery = window.matchMedia('(min-width: 600px)');
-        let lastPinnedWidth = window.innerWidth;
-        let baseHeight = window.innerHeight;
-
-        function pinInputTopOffset() {
-            if (!tabletMediaQuery.matches) return;
-            const offsetPx = (window.innerWidth > window.innerHeight) ? 240 : Math.round(baseHeight * 0.38);
-            document.documentElement.style.setProperty('--input-top-offset', offsetPx + 'px');
-            document.documentElement.style.setProperty('--text-padding-bottom', `calc(100vh - ${offsetPx - 40}px)`);
-        }
-
-        function handleWindowResize() {
-            if (window.innerWidth === lastPinnedWidth) return;
-            lastPinnedWidth = window.innerWidth; baseHeight = window.innerHeight; 
-            pinInputTopOffset();
-        }
-
-        pinInputTopOffset();
-        let resizeDebounceTimer;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeDebounceTimer);
-            resizeDebounceTimer = setTimeout(handleWindowResize, 100);
-        });
-        window.addEventListener('orientationchange', () => {
-            lastPinnedWidth = window.innerWidth; baseHeight = window.innerHeight; pinInputTopOffset();
-        });
-        tabletMediaQuery.addEventListener('change', pinInputTopOffset);
-
-        textLayerEl.addEventListener('click', () => {
-            const isClassicMode = LayoutManager.getActiveLayout() === 'classic';
-            if (!isClassicMode && !inputEl.readOnly && !ModalManager.isAnyOpen()) {
-                inputEl.focus();
-            }
-        });
-
-        function forceShowArticleStart() {
-            if (inputEl.value.length > 0) return;
-            window.scrollTo(0, 0); document.body.scrollTop = 0; document.documentElement.scrollTop = 0; textLayerEl.scrollTop = 0;
-        }
-
-        inputEl.addEventListener('focus', () => {
-            requestAnimationFrame(forceShowArticleStart); retrySequence(forceShowArticleStart);
-        });
-
-        if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', forceShowArticleStart);
-            window.visualViewport.addEventListener('scroll', forceShowArticleStart);
-        }
-
         function onLayoutChange() {
             const isClassic = LayoutManager.getActiveLayout() === 'classic';
             if (inputEl.readOnly) {
@@ -1089,8 +1084,7 @@
             activeSpanIndex = -1;
             checkInput();
             if (inputEl.value.length === 0) {
-                window.scrollTo(0, 0); document.body.scrollTop = 0;
-                document.documentElement.scrollTop = 0; textLayerEl.scrollTop = 0;
+                ViewportManager.forceShowArticleStart();
             }
             if (!ModalManager.isAnyOpen()) {
                 inputEl.focus();
@@ -1105,57 +1099,8 @@
         return { init, setPool, getPool, resetPoolToDefault, getCurrentArticle, isCustom, restoreFocusAndCaret, generateAllKeysText, onLayoutChange };
     })();
 
-    const HistoryPanel = (() => {
-        const historyModal = document.getElementById('history-modal');
-        const historyList = document.getElementById('history-list');
-        const historyBtn = document.getElementById('history-btn');
-        const closeHistoryBtn = document.getElementById('close-history-btn');
-        const clearHistoryBtn = document.getElementById('clear-history-btn');
-        const exportBtn = document.getElementById('export-btn');
-        const importBtn = document.getElementById('import-btn');
-        const importFile = document.getElementById('import-file');
+    const HistoryPanel = { init: () => HistoryUI.bind() };
 
-        function render() {
-            const records = HistoryStore.load();
-            if (records.length === 0) {
-                historyList.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding: 20px 0;">入力履歴はありません</div>';
-                return;
-            }
-            historyList.innerHTML = records.map(r =>
-                `<div class="history-item"><span class="history-date">${escapeHtml(r.date)}</span><span class="history-cpm">${escapeHtml(r.cpm)}</span></div>`
-            ).join('');
-        }
-
-        function init() {
-            historyBtn.addEventListener('click', () => { render(); ModalManager.open(historyModal); });
-            ModalManager.bindClose(closeHistoryBtn, historyModal);
-
-            clearHistoryBtn.addEventListener('click', async () => {
-                if (await UiFeedback.confirm('すべての入力履歴を削除しますか？この操作は元に戻せません。')) {
-                    HistoryStore.clear(); render();
-                }
-            });
-
-            exportBtn.addEventListener('click', () => {
-                const a = document.createElement('a');
-                a.setAttribute('href', HistoryStore.exportToDataUri()); a.setAttribute('download', 'kana_records.json');
-                document.body.appendChild(a); a.click(); a.remove();
-            });
-
-            importBtn.addEventListener('click', () => importFile.click());
-            importFile.addEventListener('change', (e) => {
-                const file = e.target.files[0]; if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (evt) => {
-                    try { HistoryStore.importFromJson(evt.target.result); render(); UiFeedback.alert('入力履歴をインポートしました。'); } 
-                    catch (err) { UiFeedback.alert('対応していないファイル形式です。'); }
-                    importFile.value = '';
-                };
-                reader.readAsText(file);
-            });
-        }
-        return { init };
-    })();
 
     const SaveResultPanel = (() => {
         const saveModal = document.getElementById('save-modal');
@@ -1250,32 +1195,55 @@
         return { init };
     })();
 
+    const ControlsPanel = (() => {
+        function init() {
+            const resetBtn = document.getElementById('reset-btn');
+            if (resetBtn) resetBtn.addEventListener('click', () => PracticeEngine.init());
+            const lineModeBtn = document.getElementById('line-mode-btn');
+            if (lineModeBtn) lineModeBtn.addEventListener('click', () => { window.location.href = 'line.html'; });
+        }
+        return { init };
+    })();
+
+    const AllKeysPanel = (() => {
+        const allKeysModal = document.getElementById('all-keys-modal');
+        const allKeysBtn = document.getElementById('all-keys-btn');
+        const cancelBtn = document.getElementById('cancel-all-keys-btn');
+
+        function init() {
+            if (allKeysBtn && allKeysModal) {
+                allKeysBtn.addEventListener('click', () => ModalManager.open(allKeysModal));
+            }
+            if (cancelBtn && allKeysModal) {
+                ModalManager.bindClose(cancelBtn, allKeysModal);
+            }
+            [
+                ['all-keys-hiragana-btn', 0],
+                ['all-keys-katakana-btn', 1],
+                ['all-keys-youon-btn', 2],
+                ['all-keys-gairai-btn', 3]
+            ].forEach(([btnId, groupIndex]) => {
+                const btn = document.getElementById(btnId);
+                if (btn && allKeysModal) {
+                    btn.addEventListener('click', () => {
+                        ModalManager.close(allKeysModal);
+                        PracticeEngine.init(PracticeEngine.generateAllKeysText(groupIndex));
+                    });
+                }
+            });
+        }
+        return { init };
+    })();
+
     ThemeManager.init(); 
     LayoutManager.init(); 
-    document.getElementById('line-mode-btn').addEventListener('click', () => {
-        window.location.href = 'line.html';
-    });
+    ViewportManager.init();
+    ControlsPanel.init();
     HistoryPanel.init(); 
     SaveResultPanel.init(); 
     EditPoolPanel.init(); 
     PastePanel.init();
-
-    document.getElementById('reset-btn').addEventListener('click', () => { PracticeEngine.init(); });
-
-    const allKeysModal = document.getElementById('all-keys-modal');
-    document.getElementById('all-keys-btn').addEventListener('click', () => { ModalManager.open(allKeysModal); });
-    ModalManager.bindClose(document.getElementById('cancel-all-keys-btn'), allKeysModal);
-    [
-        ['all-keys-hiragana-btn', 0],
-        ['all-keys-katakana-btn', 1],
-        ['all-keys-youon-btn', 2],
-        ['all-keys-gairai-btn', 3]
-    ].forEach(([btnId, groupIndex]) => {
-        document.getElementById(btnId).addEventListener('click', () => {
-            ModalManager.close(allKeysModal);
-            PracticeEngine.init(PracticeEngine.generateAllKeysText(groupIndex));
-        });
-    });
+    AllKeysPanel.init();
 
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') PracticeEngine.restoreFocusAndCaret(); });
     window.addEventListener('focus', () => PracticeEngine.restoreFocusAndCaret());
